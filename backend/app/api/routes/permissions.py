@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from backend.app.core.authorization import require_permission
 from backend.app.core.database import get_db
 from backend.app.schemas.permission import (
     PermissionCreate,
@@ -20,6 +21,7 @@ router = APIRouter(
     "",
     response_model=PermissionResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("permissions:manage"))],
 )
 def create_permission(
     data: PermissionCreate,
@@ -37,14 +39,18 @@ def create_permission(
 @router.get(
     "",
     response_model=list[PermissionResponse],
+    dependencies=[Depends(require_permission("permissions:read"))],
 )
-def list_permissions(db: Session = Depends(get_db)):
+def list_permissions(
+    db: Session = Depends(get_db),
+):
     return permission_service.list_permissions(db)
 
 
 @router.get(
     "/{permission_id}",
     response_model=PermissionResponse,
+    dependencies=[Depends(require_permission("permissions:read"))],
 )
 def get_permission(
     permission_id: int,
@@ -67,6 +73,7 @@ def get_permission(
 @router.put(
     "/{permission_id}",
     response_model=PermissionResponse,
+    dependencies=[Depends(require_permission("permissions:manage"))],
 )
 def update_permission(
     permission_id: int,
@@ -97,6 +104,7 @@ def update_permission(
 @router.delete(
     "/{permission_id}",
     response_model=PermissionResponse,
+    dependencies=[Depends(require_permission("permissions:manage"))],
 )
 def deactivate_permission(
     permission_id: int,

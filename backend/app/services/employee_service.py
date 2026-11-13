@@ -5,6 +5,17 @@ from backend.app.models.department import Department
 from backend.app.models.employee import Employee
 
 
+EMPLOYEE_UPDATE_FIELDS = {
+    "employee_number",
+    "first_name",
+    "last_name",
+    "email",
+    "job_title",
+    "department_id",
+    "manager_id",
+}
+
+
 def list_employees(
     db: Session,
     department_id: int | None = None,
@@ -39,14 +50,42 @@ def validate_relationships(
         if department is None or not department.is_active:
             raise ValueError("Department not found or inactive")
 
-    if manager_id is not None:
-        manager = db.get(Employee, manager_id)
+    if manager_id is None:
+        return
 
-        if manager is None or manager.status != "active":
-            raise ValueError("Manager not found or inactive")
+    manager = db.get(Employee, manager_id)
 
-        if employee_id is not None and manager_id == employee_id:
-            raise ValueError("An employee cannot be their own manager")
+    if manager is None or manager.status != "active":
+        raise ValueError("Manager not found or inactive")
+
+    if employee_id is None:
+        return
+
+    if manager_id == employee_id:
+        raise ValueError("An employee cannot be their own manager")
+
+    visited_manager_ids = {manager_id}
+    current_manager_id = manager.manager_id
+
+    while current_manager_id is not None:
+        if current_manager_id == employee_id:
+            raise ValueError(
+                "Manager assignment would create a reporting hierarchy cycle"
+            )
+
+        if current_manager_id in visited_manager_ids:
+            raise ValueError(
+                "Existing manager hierarchy contains a cycle"
+            )
+
+        visited_manager_ids.add(current_manager_id)
+
+        current_manager = db.get(Employee, current_manager_id)
+
+        if current_manager is None:
+            break
+
+        current_manager_id = current_manager.manager_id
 
 
 def validate_unique_fields(
@@ -96,16 +135,22 @@ def update_employee(
     employee: Employee,
     data: dict,
 ):
+    update_data = {
+        field: value
+        for field, value in data.items()
+        if field in EMPLOYEE_UPDATE_FIELDS
+    }
+
     validate_relationships(
         db,
-        data.get("department_id"),
-        data.get("manager_id"),
+        update_data.get("department_id"),
+        update_data.get("manager_id"),
         employee.id,
     )
 
-    validate_unique_fields(db, data, employee.id)
+    validate_unique_fields(db, update_data, employee.id)
 
-    for field, value in data.items():
+    for field, value in update_data.items():
         setattr(employee, field, value)
 
     db.commit()

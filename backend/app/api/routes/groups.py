@@ -21,11 +21,11 @@ router = APIRouter(
     "",
     response_model=GroupResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("groups:manage"))],
 )
 def create_group(
     data: GroupCreate,
     db: Session = Depends(get_db),
-    current_employee=Depends(require_permission("groups:manage")),
 ):
     try:
         return group_service.create_group(
@@ -39,14 +39,18 @@ def create_group(
 @router.get(
     "",
     response_model=list[GroupResponse],
+    dependencies=[Depends(require_permission("groups:read"))],
 )
-def list_groups(db: Session = Depends(get_db)):
+def list_groups(
+    db: Session = Depends(get_db),
+):
     return group_service.list_groups(db)
 
 
 @router.get(
     "/{group_id}",
     response_model=GroupResponse,
+    dependencies=[Depends(require_permission("groups:read"))],
 )
 def get_group(
     group_id: int,
@@ -63,12 +67,12 @@ def get_group(
 @router.put(
     "/{group_id}",
     response_model=GroupResponse,
+    dependencies=[Depends(require_permission("groups:manage"))],
 )
 def update_group(
     group_id: int,
     data: GroupUpdate,
     db: Session = Depends(get_db),
-    current_employee=Depends(require_permission("groups:manage")),
 ):
     group = group_service.get_group(db, group_id)
 
@@ -88,11 +92,11 @@ def update_group(
 @router.delete(
     "/{group_id}",
     response_model=GroupResponse,
+    dependencies=[Depends(require_permission("groups:manage"))],
 )
 def deactivate_group(
     group_id: int,
     db: Session = Depends(get_db),
-    current_employee=Depends(require_permission("groups:manage")),
 ):
     group = group_service.get_group(db, group_id)
 
@@ -105,12 +109,12 @@ def deactivate_group(
 @router.post(
     "/{group_id}/permissions/{permission_id}",
     response_model=GroupResponse,
+    dependencies=[Depends(require_permission("groups:manage"))],
 )
 def assign_permission(
     group_id: int,
     permission_id: int,
     db: Session = Depends(get_db),
-    current_employee=Depends(require_permission("groups:manage")),
 ):
     try:
         return group_service.assign_permission(
@@ -127,12 +131,12 @@ def assign_permission(
 @router.delete(
     "/{group_id}/permissions/{permission_id}",
     response_model=GroupResponse,
+    dependencies=[Depends(require_permission("groups:manage"))],
 )
 def remove_permission(
     group_id: int,
     permission_id: int,
     db: Session = Depends(get_db),
-    current_employee=Depends(require_permission("groups:manage")),
 ):
     try:
         return group_service.remove_permission(

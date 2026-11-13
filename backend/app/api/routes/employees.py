@@ -1,8 +1,15 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    status,
+)
 from sqlalchemy.orm import Session
 
+from backend.app.core.authorization import require_permission
 from backend.app.core.database import get_db
 from backend.app.schemas.employee import (
     EmployeeCreate,
@@ -22,6 +29,7 @@ router = APIRouter(
     "",
     response_model=EmployeeResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("employees:create"))],
 )
 def create_employee(
     data: EmployeeCreate,
@@ -42,6 +50,7 @@ def create_employee(
 @router.get(
     "",
     response_model=list[EmployeeResponse],
+    dependencies=[Depends(require_permission("employees:read"))],
 )
 def list_employees(
     department_id: int | None = None,
@@ -61,6 +70,7 @@ def list_employees(
 @router.get(
     "/{employee_id}",
     response_model=EmployeeResponse,
+    dependencies=[Depends(require_permission("employees:read"))],
 )
 def get_employee(
     employee_id: int,
@@ -83,6 +93,7 @@ def get_employee(
 @router.put(
     "/{employee_id}",
     response_model=EmployeeResponse,
+    dependencies=[Depends(require_permission("employees:update"))],
 )
 def update_employee(
     employee_id: int,
@@ -116,6 +127,7 @@ def update_employee(
 @router.delete(
     "/{employee_id}",
     response_model=EmployeeResponse,
+    dependencies=[Depends(require_permission("employees:deactivate"))],
 )
 def deactivate_employee(
     employee_id: int,

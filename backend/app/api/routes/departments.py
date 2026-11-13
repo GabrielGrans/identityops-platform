@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from backend.app.core.authorization import require_permission
 from backend.app.core.database import get_db
 from backend.app.schemas.department import (
     DepartmentCreate,
@@ -20,6 +21,7 @@ router = APIRouter(
     "",
     response_model=DepartmentResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission("departments:manage"))],
 )
 def create_department(
     data: DepartmentCreate,
@@ -40,6 +42,7 @@ def create_department(
 @router.get(
     "",
     response_model=list[DepartmentResponse],
+    dependencies=[Depends(require_permission("departments:read"))],
 )
 def list_departments(
     db: Session = Depends(get_db),
@@ -50,6 +53,7 @@ def list_departments(
 @router.get(
     "/{department_id}",
     response_model=DepartmentResponse,
+    dependencies=[Depends(require_permission("departments:read"))],
 )
 def get_department(
     department_id: int,
@@ -72,6 +76,7 @@ def get_department(
 @router.put(
     "/{department_id}",
     response_model=DepartmentResponse,
+    dependencies=[Depends(require_permission("departments:manage"))],
 )
 def update_department(
     department_id: int,
@@ -105,6 +110,7 @@ def update_department(
 @router.delete(
     "/{department_id}",
     response_model=DepartmentResponse,
+    dependencies=[Depends(require_permission("departments:manage"))],
 )
 def deactivate_department(
     department_id: int,

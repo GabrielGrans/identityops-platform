@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
-from typing import Literal
 
 
 class EmployeeCreate(BaseModel):
@@ -22,7 +21,6 @@ class EmployeeUpdate(BaseModel):
     job_title: str = Field(min_length=2, max_length=120)
     department_id: int | None = None
     manager_id: int | None = None
-    status: Literal["active", "inactive"] = "active"
 
 
 class EmployeeResponse(BaseModel):
