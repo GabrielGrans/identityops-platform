@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -8,7 +8,7 @@ The format is based on Keep a Changelog.
 
 ### Security
 - Separated group management from access assignment permissions.
-- Introduced the dedicated ccess:manage RBAC permission.
+- Introduced the dedicated `access:manage` RBAC permission.
 - Restricted employee group membership and group permission assignments.
 - Added regression coverage against privilege escalation.
 
@@ -54,4 +54,3 @@ The format is based on Keep a Changelog.
 - Database migrations.
 - CI/CD automation.
 - End-to-end tests.
-
