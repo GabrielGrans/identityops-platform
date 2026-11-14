@@ -60,7 +60,14 @@ PERMISSIONS = [
         "code": "groups:manage",
         "resource": "groups",
         "action": "manage",
-        "description": "Allows managing access groups and their memberships.",
+        "description": "Allows creating, updating and deactivating access groups.",
+    },
+    {
+        "name": "Manage Access Assignments",
+        "code": "access:manage",
+        "resource": "access",
+        "action": "manage",
+        "description": "Allows assigning employees to groups and managing group permissions.",
     },
     {
         "name": "View Permissions",

@@ -109,7 +109,7 @@ def deactivate_group(
 @router.post(
     "/{group_id}/permissions/{permission_id}",
     response_model=GroupResponse,
-    dependencies=[Depends(require_permission("groups:manage"))],
+    dependencies=[Depends(require_permission("access:manage"))],
 )
 def assign_permission(
     group_id: int,
@@ -131,7 +131,7 @@ def assign_permission(
 @router.delete(
     "/{group_id}/permissions/{permission_id}",
     response_model=GroupResponse,
-    dependencies=[Depends(require_permission("groups:manage"))],
+    dependencies=[Depends(require_permission("access:manage"))],
 )
 def remove_permission(
     group_id: int,

@@ -136,6 +136,7 @@ def test_data(db_session):
         ("Manage Departments", "departments:manage", "departments", "manage"),
         ("Read Groups", "groups:read", "groups", "read"),
         ("Manage Groups", "groups:manage", "groups", "manage"),
+        ("Manage Access Assignments", "access:manage", "access", "manage"),
         ("Read Permissions", "permissions:read", "permissions", "read"),
         ("Manage Permissions", "permissions:manage", "permissions", "manage"),
     ]

@@ -22,7 +22,7 @@ def assign_employee_to_group(
     employee_id: int,
     group_id: int,
     db: Session = Depends(get_db),
-    current_employee=Depends(require_permission("groups:manage")),
+    current_employee=Depends(require_permission("access:manage")),
 ):
     try:
         employee = group_service.assign_employee(
@@ -51,7 +51,7 @@ def remove_employee_from_group(
     employee_id: int,
     group_id: int,
     db: Session = Depends(get_db),
-    current_employee=Depends(require_permission("groups:manage")),
+    current_employee=Depends(require_permission("access:manage")),
 ):
     try:
         employee = group_service.remove_employee(

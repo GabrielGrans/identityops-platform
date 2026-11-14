@@ -1,3 +1,4 @@
+from backend.app.models.group import Group
 from backend.app.services import employee_service
 
 
@@ -155,3 +156,43 @@ def test_update_employee_cannot_create_manager_hierarchy_cycle(
 
     assert update_response.status_code == 400
     assert "hierarchy cycle" in update_response.text
+
+
+def test_group_manager_cannot_assign_members_or_group_permissions(
+    client,
+    employee_token,
+    test_data,
+    db_session,
+):
+    employee = test_data["employee"]
+    groups_manage = test_data["permissions"]["groups:manage"]
+
+    manager_group = Group(
+        name="Limited Group Managers",
+        code="LIMITED_GROUP_MANAGERS",
+        description="Can manage group records but not access assignments",
+        is_active=True,
+        permissions=[groups_manage],
+    )
+
+    employee.groups.append(manager_group)
+    db_session.add(manager_group)
+    db_session.commit()
+
+    headers = {
+        "Authorization": f"Bearer {employee_token}",
+    }
+
+    membership_response = client.post(
+        f"/employees/{employee.id}/groups/{test_data['admin_group'].id}",
+        headers=headers,
+    )
+
+    permission_response = client.post(
+        f"/groups/{manager_group.id}/permissions/"
+        f"{test_data['extra_permission'].id}",
+        headers=headers,
+    )
+
+    assert membership_response.status_code == 403
+    assert permission_response.status_code == 403

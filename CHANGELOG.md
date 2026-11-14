@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [0.6.1] - 2026-11-13
+
+### Security
+- Separated group management from access assignment permissions.
+- Introduced the dedicated ccess:manage RBAC permission.
+- Restricted employee group membership and group permission assignments.
+- Added regression coverage against privilege escalation.
+
+### Quality
+- Backend test suite: 96 passing tests.
+- RBAC and security hardening tests passing.
+
+---
 ## [0.6.0] - 2026-11-13
 
 
@@ -41,3 +54,4 @@ The format is based on Keep a Changelog.
 - Database migrations.
 - CI/CD automation.
 - End-to-end tests.
+
