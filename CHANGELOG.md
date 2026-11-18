@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [0.9.0] (Unreleased)
+
+### Added
+
+- Access certification campaigns with assigned reviewers, date windows and auditable transitions.
+- A snapshot of active local employee–group memberships with justified retain and revoke decisions.
+- Protection against self-review, duplicate decisions and decisions on memberships removed and re-granted after activation.
+- A React campaign console and an additive Alembic migration from v0.8.0.
+
+### Upgrade
+
+- Run `python -m backend.app.scripts.migrate` and reseed permissions for existing installations. See the [campaign guide](docs/CERTIFICATION.md).
+
 ## [0.8.0]
 
 ### Added

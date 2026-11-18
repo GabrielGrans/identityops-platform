@@ -10,7 +10,7 @@ from backend.app.core.database import engine
 from backend.app.models import Base
 
 
-def upgrade_database(bind: Engine, *, bootstrap: bool = False):
+def upgrade_database(bind: Engine, *, bootstrap: bool = False, revision: str = "head"):
     with bind.begin() as connection:
         if connection.dialect.name == "postgresql":
             connection.execute(text("SELECT pg_advisory_xact_lock(57223, 2)"))
@@ -23,7 +23,7 @@ def upgrade_database(bind: Engine, *, bootstrap: bool = False):
         config = Config()
         config.set_main_option("script_location", str(Path(__file__).resolve().parents[1] / "migrations"))
         config.attributes["connection"] = connection
-        command.upgrade(config, "head")
+        command.upgrade(config, revision)
 
 
 def main():

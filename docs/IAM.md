@@ -51,3 +51,5 @@ Use `/docs` no ambiente de desenvolvimento ou `/api/docs` no pacote Docker.
 | Ciclo de vida | `POST /lifecycle/joiner`, `POST /lifecycle/{employee_id}/mover`, `POST /lifecycle/{employee_id}/leaver` |
 | Revisões | `GET/POST /access-reviews`, `POST /access-reviews/{id}/decision` |
 | Auditoria | `GET /audit-events` |
+
+Para revisar várias associações em um ciclo com prazo e revisores designados, use as [campanhas de certificação](CERTIFICATION.md).

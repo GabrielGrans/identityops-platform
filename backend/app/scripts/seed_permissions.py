@@ -122,6 +122,20 @@ PERMISSIONS = [
         "action": "manage_links",
         "description": "Allows explicitly linking directory objects to local IAM records.",
     },
+    {
+        "name": "Manage Certification Campaigns",
+        "code": "certifications:manage",
+        "resource": "certifications",
+        "action": "manage",
+        "description": "Allows creating campaigns, assigning reviewers and controlling campaign lifecycle.",
+    },
+    {
+        "name": "Review Certification Items",
+        "code": "certifications:review",
+        "resource": "certifications",
+        "action": "review",
+        "description": "Allows deciding items in assigned certification campaigns.",
+    },
 ]
 
 

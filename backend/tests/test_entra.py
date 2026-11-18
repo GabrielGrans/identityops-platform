@@ -60,7 +60,7 @@ def integration(client, db_session, test_data, monkeypatch):
 def migrated(integration, db_session):
     bind = db_session.get_bind()
     db_session.commit()
-    upgrade_database(bind)
+    upgrade_database(bind, revision="entra_080")
     try:
         yield integration
     finally:
@@ -86,9 +86,9 @@ def test_migration_is_explicit_additive_and_repeatable(client, db_session, admin
     bind = db_session.get_bind()
     db_session.commit()
     assert "entra_users" not in inspect(bind).get_table_names()
-    upgrade_database(bind)
+    upgrade_database(bind, revision="entra_080")
     try:
-        upgrade_database(bind)
+        upgrade_database(bind, revision="entra_080")
         assert client.get("/entra/status", headers=auth).json()["state"] == "ready"
         assert db_session.get(Employee, employee_id).status == "active"
     finally:

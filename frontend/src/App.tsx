@@ -40,6 +40,7 @@ const navigation = [
   { label: "Access Requests", icon: LockKeyhole, section: "ACCESS MANAGEMENT" },
   { label: "Identity Lifecycle", icon: UserPlus, section: "GOVERNANCE" },
   { label: "Access Reviews", icon: CheckCircle2, section: "GOVERNANCE" },
+  { label: "Access Certification", icon: ShieldCheck, section: "GOVERNANCE" },
   { label: "Audit Logs", icon: Activity, section: "GOVERNANCE" },
 ];
 
@@ -533,7 +534,7 @@ function App() {
 
               <footer className="page-footer">
                 <span>
-                  IdentityOps Platform <span className="footer-version">v0.8.0</span>
+                  IdentityOps Platform <span className="footer-version">v0.9.0</span>
                 </span>
                 <span>Identity management made simple.</span>
               </footer>
