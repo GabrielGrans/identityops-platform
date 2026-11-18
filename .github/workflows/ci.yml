@@ -94,6 +94,7 @@ jobs:
         with:
           name: identityops-0.7.0
           path: release/
+          include-hidden-files: true
       - name: Stop smoke stack
         if: always()
         run: docker compose -f infrastructure/docker/compose.release.yml down --volumes
