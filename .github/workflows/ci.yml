@@ -91,13 +91,13 @@ jobs:
       - name: Package release
         run: |
           mkdir release
-          docker save identityops-api:1.0.0 identityops-web:1.0.0 postgres:17 | gzip > release/identityops-images.tar.gz
+          docker save identityops-api:1.1.0 identityops-web:1.1.0 postgres:17 | gzip > release/identityops-images.tar.gz
           cp infrastructure/docker/compose.release.yml docs/RELEASE.md docs/IAM.md docs/ENTRA_ID.md docs/CERTIFICATION.md docs/DASHBOARD.md .env.example LICENSE release/
           cd release
           sha256sum identityops-images.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: identityops-1.0.0
+          name: identityops-1.1.0
           path: release/
           include-hidden-files: true
       - name: Stop smoke stack
@@ -113,7 +113,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: identityops-1.0.0
+          name: identityops-1.1.0
           path: release
       - name: Attach package to the matching draft
         env:
@@ -122,7 +122,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
-          [[ "$RELEASE_TAG" == v1.0.0 ]]
+          [[ "$RELEASE_TAG" == v1.1.0 ]]
           gh release view "$RELEASE_TAG" --json isDraft,targetCommitish |
             jq -e --arg sha "$GITHUB_SHA" '.isDraft and .targetCommitish == $sha'
           (cd release && sha256sum -c SHA256SUMS)

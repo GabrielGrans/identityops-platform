@@ -5,7 +5,7 @@ import json
 import math
 from threading import Lock
 from time import monotonic, sleep
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 from uuid import UUID
 
 import httpx
@@ -87,6 +87,12 @@ class UserRecord(TypedDict):
     principal_name: str | None
     mail: str | None
     account_enabled: bool | None
+    user_type: NotRequired[str | None]
+    employee_type: NotRequired[str | None]
+    employee_number: NotRequired[str | None]
+    given_name: NotRequired[str | None]
+    surname: NotRequired[str | None]
+    job_title: NotRequired[str | None]
 
 
 class GroupRecord(TypedDict):
@@ -272,13 +278,22 @@ class GraphClient:
         groups: dict[str, GroupRecord] = {}
         memberships: set[tuple[str, str]] = set()
         skipped = 0
-        for count, item in enumerate(self.pages("/users", "id,displayName,userPrincipalName,mail,accountEnabled"), 1):
+        for count, item in enumerate(self.pages(
+            "/users", "id,displayName,userPrincipalName,mail,accountEnabled,userType,employeeType,"
+                      "employeeId,givenName,surname,jobTitle"
+        ), 1):
             if count > MAX_OBJECTS:
                 raise GraphError("sync_limit")
             key = object_id(item)
             users[key] = {
                 "object_id": key, "display_name": optional_text(item, "displayName", 256),
                 "principal_name": optional_text(item, "userPrincipalName", 320),
+                "user_type": optional_text(item, "userType", 32),
+                "employee_type": optional_text(item, "employeeType", 120),
+                "employee_number": optional_text(item, "employeeId", 64),
+                "given_name": optional_text(item, "givenName", 100),
+                "surname": optional_text(item, "surname", 100),
+                "job_title": optional_text(item, "jobTitle", 120),
                 "mail": optional_text(item, "mail", 320), "account_enabled": optional_bool(item, "accountEnabled"),
             }
         for count, item in enumerate(self.pages("/groups", "id,displayName,securityEnabled"), 1):

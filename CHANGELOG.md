@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
-## [1.0.1] (Unreleased)
+## [1.1.0] (Unreleased)
+
+- Add preview and confirmed, local-only provisioning and linking for Microsoft Entra identities.
+- Validate person eligibility, snapshot freshness and duplicate normalized emails. Apply batches atomically with audit events and inactive defaults.
+- Introduce the `provisioning_110` migration and dedicated local provisioning permission.
+
+## [1.0.1] - 2026-11-18
 
 - Refresh the IdentityOps login, navigation and favicon with the Grans Enterprise brand.
 - Add a scalable hexagonal G emblem, README banner and author credit.

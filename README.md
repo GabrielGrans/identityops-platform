@@ -6,7 +6,7 @@
 
 Engineered by Gabriel Grans
 
-[![Release](https://img.shields.io/badge/Release-v1.0.0-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.0.0)
+[![Release](https://img.shields.io/badge/Release-v1.0.1-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.0.1)
 [![CI](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-FastAPI-blue)
 ![React](https://img.shields.io/badge/React-TypeScript-3178C6)
@@ -16,13 +16,13 @@ Engineered by Gabriel Grans
 
 **English | Português**
 
-### Latest Release — v1.0.0
+### Latest Release — v1.0.1
 
-**English.** The IAM Governance & Security Dashboard shows current IAM inventory, approval and review queues, certification progress, and recorded security events according to each user's permissions.
+**English.** Corporate branding introduces the Grans Enterprise | IdentityOps visual identity across sign-in, navigation and documentation.
 
-**Português.** O painel de governança e segurança IAM apresenta inventário atualizado, filas de aprovação e revisão, progresso das certificações e eventos de segurança registrados conforme as permissões do usuário.
+**Português.** A identidade visual Grans Enterprise | IdentityOps está presente no login, na navegação e na documentação.
 
-[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.0.0) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v1.0.0/identityops-1.0.0-linux-amd64.tar) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md) · [Access Certification Guide](docs/CERTIFICATION.md) · [Dashboard Guide](docs/DASHBOARD.md)
+[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.0.1) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v1.0.1/identityops-1.0.1-linux-amd64.tar) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md) · [Access Certification Guide](docs/CERTIFICATION.md) · [Dashboard Guide](docs/DASHBOARD.md)
 
 ---
 
@@ -261,7 +261,9 @@ Docker images for controlled deployment. See the [release guide](docs/RELEASE.md
 
 ## Project Status
 
-**Current version: v1.0.0**
+**Upcoming version: v1.1.0**
+
+Authorized administrators can preview and confirm local Employee creation or explicit linking from a synchronized Entra snapshot. Synchronization never creates Employees.
 
 The governance dashboard brings together current IAM counts and recorded activity. [Dashboard and metric guide](docs/DASHBOARD.md)
 
@@ -509,7 +511,9 @@ O fluxo manual gera imagens Docker para implantação controlada. Consulte o [gu
 
 ## Status do Projeto
 
-**Versão atual: v1.0.0**
+**Próxima versão: v1.1.0**
+
+Administradores autorizados podem revisar e confirmar a criação de colaboradores locais ou vincular registros existentes. A sincronização não cria colaboradores.
 
 O painel de governança reúne indicadores atuais de IAM e atividades registradas. [Guia do painel e métricas](docs/DASHBOARD.md)
 

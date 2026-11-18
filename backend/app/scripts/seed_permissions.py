@@ -136,6 +136,13 @@ PERMISSIONS = [
         "action": "review",
         "description": "Allows deciding items in assigned certification campaigns.",
     },
+    {
+        "name": "Provision Local Employees from Entra",
+        "code": "entra:provision_local",
+        "resource": "entra",
+        "action": "provision_local",
+        "description": "Allows confirmed local-only reconciliation using the Entra snapshot.",
+    },
 ]
 
 

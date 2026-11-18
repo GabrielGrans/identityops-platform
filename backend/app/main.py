@@ -50,7 +50,7 @@ app = FastAPI(
     description=(
         "Enterprise Identity and Access Management Platform"
     ),
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
@@ -85,7 +85,7 @@ def root():
     return {
         "application": "IdentityOps",
         "message": "IdentityOps API is running",
-        "version": "1.0.0",
+        "version": "1.1.0",
     }
 
 

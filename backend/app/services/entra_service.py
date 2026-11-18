@@ -160,7 +160,7 @@ def change_link(db: Session, external_model, tenant_id: str, object_id: str, act
     setattr(row, link_field.key, local_id)
     action = "entra.link.removed" if local_id is None else "entra.link.created"
     record_event(db, actor_id, action, external_model.__tablename__, row.id,
-                 local_id=existing if local_id is None else local_id)
+                 local_id=existing if local_id is None else local_id, tenant_id=tenant_id, object_id=object_id)
     try:
         db.commit()
     except IntegrityError:
