@@ -1,5 +1,10 @@
-# IdentityOps Platform
-### Enterprise Identity & Access Management Platform
+# Grans Enterprise | IdentityOps
+
+![Grans Enterprise | IdentityOps. Identity & Access Management Platform. Engineered by Gabriel Grans.](docs/assets/grans-identityops-banner.svg)
+
+**Identity & Access Management Platform**
+
+Engineered by Gabriel Grans
 
 [![Release](https://img.shields.io/badge/Release-v1.0.0-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.0.0)
 [![CI](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml)
