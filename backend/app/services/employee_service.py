@@ -1,4 +1,5 @@
-from sqlalchemy import or_, select, text
+from sqlalchemy import func, or_, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.app.models.department import Department
@@ -105,7 +106,7 @@ def validate_unique_fields(
     statement = select(Employee).where(
         or_(
             Employee.employee_number == data["employee_number"],
-            Employee.email == str(data["email"]),
+            func.lower(func.trim(Employee.email)) == str(data["email"]).strip().lower(),
         )
     )
 
@@ -121,6 +122,14 @@ def validate_unique_fields(
         raise ValueError("Email address already exists")
 
 
+def save_employee(db: Session, actor_id: int | None, action: str, employee: Employee):
+    try:
+        commit_change(db, actor_id, action, employee)
+    except IntegrityError:
+        db.rollback()
+        raise ValueError("The employee record conflicts with existing data") from None
+
+
 def create_employee(db: Session, data: dict, actor_id: int | None = None):
     lock_reporting_hierarchy(db)
     validate_relationships(
@@ -134,7 +143,7 @@ def create_employee(db: Session, data: dict, actor_id: int | None = None):
     employee = Employee(**data)
 
     db.add(employee)
-    commit_change(db, actor_id, "employee.create", employee)
+    save_employee(db, actor_id, "employee.create", employee)
 
     return employee
 
@@ -165,7 +174,7 @@ def update_employee(
     for field, value in update_data.items():
         setattr(employee, field, value)
 
-    commit_change(db, actor_id, "employee.update", employee)
+    save_employee(db, actor_id, "employee.update", employee)
 
     return employee
 

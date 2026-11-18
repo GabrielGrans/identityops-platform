@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from "react";
+import { EntraReconciliation, type Selection } from "./EntraReconciliation";
 import { Feedback, Page, Pagination, Panel, QueryState } from "./common";
 import { displayTime, PAGE_SIZE, useCursor, useMutation, useQuery, type Session } from "./data";
 
@@ -73,6 +74,15 @@ export function EntraPage({ session }: { session: Session }) {
   const canLink = permissions.includes("entra:manage_links");
   const [tab, setTab] = useState<"users" | "groups">("users");
   const [group, setGroup] = useState<Group>();
+  const [selected, setSelected] = useState<Selection[]>([]);
+  const canReconcile = canLink && permissions.includes("entra:provision_local");
+  const canCreate = permissions.includes("employees:create");
+
+  function toggle(user: User) {
+    setSelected(current => current.some(item => item.object_id === user.object_id)
+      ? current.filter(item => item.object_id !== user.object_id)
+      : current.length < 25 ? [...current, { object_id: user.object_id, display_name: user.display_name }] : current);
+  }
 
   async function sync() {
     if (!window.confirm("Read Microsoft Graph and refresh the local Entra snapshot?")) return;
@@ -111,7 +121,14 @@ export function EntraPage({ session }: { session: Session }) {
             <button className="secondary-button" aria-pressed={tab === "groups"} onClick={() => setTab("groups")}>Groups</button>
           </div>
           {tab === "users" ? <DirectoryList<User> key="users" token={token} path="/entra/users" revision={operation.revision}
-            render={(item) => <><UserDetails user={item} />{mapping(item, "users")}</>} />
+            render={(item) => <><UserDetails user={item} />{mapping(item, "users")}
+              {canReconcile && item.present && item.local_employee_id === null && <label className="entra-attestation">
+                <input type="checkbox" checked={selected.some(row => row.object_id === item.object_id)}
+                  disabled={selected.length >= 25 && !selected.some(row => row.object_id === item.object_id)}
+                  onChange={() => toggle(item)} />
+                Reconcile {item.display_name ?? item.object_id}
+              </label>}
+            </>} />
             : <DirectoryList<Group> key="groups" token={token} path="/entra/groups" revision={operation.revision}
               render={(item) => <>
                 <div>
@@ -124,6 +141,10 @@ export function EntraPage({ session }: { session: Session }) {
                 </div>
               </>} />}
         </Panel>
+        {canReconcile && tab === "users" && selected.length > 0 &&
+          <EntraReconciliation selected={selected} session={session}
+            canCreate={canCreate} onComplete={operation.refresh}
+            remove={(id) => setSelected(current => current.filter(item => item.object_id !== id))} />}
         {group && <Panel title={`Direct user members · ${group.display_name ?? group.object_id}`}>
           <button className="secondary-button" onClick={() => setGroup(undefined)}>Close members</button>
           <DirectoryList<User> key={group.object_id} token={token} path={`/entra/groups/${group.object_id}/members`} revision={operation.revision}

@@ -9,13 +9,14 @@ from backend.app.api.routes.entra import integration_settings, snapshot_loader
 from backend.app.core.config import Settings
 from backend.app.main import app
 from backend.app.models.employee import Employee
-from backend.app.models.entra import EntraBase, EntraMembership, EntraSyncRun, EntraUser
+from backend.app.models.entra import EntraMembership, EntraSyncRun, EntraUser
 from backend.app.models.governance import AuditEvent
 from backend.app.models.permission import Permission
 from backend.app.scripts.migrate import upgrade_database
 from backend.app.services import entra_service
 from backend.app.services.graph_client import DirectorySnapshot, GraphError
 
+from test_certification import cleanup
 from test_graph_client import APP, GROUP, TENANT, USER
 
 
@@ -60,14 +61,12 @@ def integration(client, db_session, test_data, monkeypatch):
 def migrated(integration, db_session):
     bind = db_session.get_bind()
     db_session.commit()
-    upgrade_database(bind, revision="entra_080")
+    upgrade_database(bind)
     try:
         yield integration
     finally:
         db_session.rollback()
-        EntraBase.metadata.drop_all(bind)
-        with bind.begin() as connection:
-            connection.execute(text("DROP TABLE identityops_schema_version"))
+        cleanup(bind)
 
 
 def use_snapshot(monkeypatch, loader=snapshot):
@@ -86,16 +85,14 @@ def test_migration_is_explicit_additive_and_repeatable(client, db_session, admin
     bind = db_session.get_bind()
     db_session.commit()
     assert "entra_users" not in inspect(bind).get_table_names()
-    upgrade_database(bind, revision="entra_080")
+    upgrade_database(bind)
     try:
-        upgrade_database(bind, revision="entra_080")
+        upgrade_database(bind)
         assert client.get("/entra/status", headers=auth).json()["state"] == "ready"
         assert db_session.get(Employee, employee_id).status == "active"
     finally:
         db_session.rollback()
-        EntraBase.metadata.drop_all(bind)
-        with bind.begin() as connection:
-            connection.execute(text("DROP TABLE identityops_schema_version"))
+        cleanup(bind)
 
 
 def test_protected_and_disabled(client, admin_token, employee_token, integration):

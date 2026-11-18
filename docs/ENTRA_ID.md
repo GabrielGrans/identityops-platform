@@ -102,3 +102,33 @@ PUT  /entra/groups/00000000-0000-4000-8000-000000000001/link
 | `migration_required` | Aplique a migração no mesmo banco utilizado pela API. |
 
 A integração usa o Graph público v1.0 e um tenant configurado por vez. Faz importações completas sob demanda, sem agendamento nem sincronização incremental. A visão de associações inclui usuários diretos visíveis, sem expansão de grupos aninhados. Grupos com membros ocultos podem exigir `Member.Read.Hidden` e ficar incompletos com as permissões atuais. Usuários retornados como membros mas ausentes da coleção de usuários são contabilizados separadamente. O único POST externo é o pedido do token OAuth. Provisionamento externo, alterações de contas e mudanças de membros no Entra ficam fora desta versão.
+
+## Local employee reconciliation (v1.1.0)
+
+Directory synchronization refreshes the read-only snapshot. It never creates Employees. To provision local records, select up to 25 Entra users under **External directory**, open **Reconcile selected users**, review the preview and confirm the batch.
+
+- Reconciliation requires `entra:read`, `entra:provision_local` and `entra:manage_links`. A batch with creation also requires `employees:create`. The department picker requires `departments:read`. The existing explicit link and unlink endpoints remain available under their existing permission.
+- A selected identity must be present in the latest completed snapshot of the configured tenant, captured within 24 hours. It must be an enabled Entra Member with `employeeType=Employee`, or an employee ID when the type is blank. Explicit non-employee classifications are blocked. The operator must still verify that the account belongs to a person. Directory metadata alone cannot establish that.
+- The stable lookup key is tenant ID plus Entra object ID. Local matching uses Graph `mail`, after validation, trimming and case normalization. The UPN is not an email fallback. A matching email blocks creation. Linking requires choosing the sole matching Employee ID explicitly, and leaves all Employee fields unchanged.
+- The import proposes the employee number from Graph `employeeId`, the first and last names from `givenName` and `surname`, and the job title from `jobTitle`. Operators can supply verified local values for those fields and choose an active department. The system does not generate missing employee numbers or infer names from the display name.
+- New Employees start `inactive`, with no password, manager, groups or local sign-in access. Activation and assigning access are separate IAM operations outside this flow. The Graph connector still has no write operations or additional Graph permission requirements.
+- Apply revalidates the submitted data against the preview's snapshot run. The batch is atomic. One blocked item prevents all Employee and link writes. Repeating an already applied batch returns existing links without creating duplicate records. Audit events store the actor and time, tenant and object IDs, local IDs where applicable, and outcome codes, with no copied names or email addresses.
+- To undo a successful link, unlink explicitly in the Entra directory. Unlinking keeps the Employee. For an unintended imported Employee, review the inactive record with the local IAM administrator. There is no automatic deletion or bulk undo.
+
+The preview is `POST /entra/reconciliation/preview` with an `items` array. Apply is `POST /entra/reconciliation/apply` with the same selected actions, `snapshot_run_id` returned by preview and `confirmed: true`. Mark each actionable identity `person_verified: true` after checking it. The response contains per-item statuses and an `applied` flag.
+
+### Upgrade
+
+Back up PostgreSQL, run `python -m backend.app.scripts.migrate`, then run `python -m backend.app.scripts.seed_permissions` to grant the new permission to the existing administrator group. Run Entra sync again to collect the new attributes. The migration rejects existing local email duplicates after trimming and ignoring case. Review and resolve those records explicitly before retrying. Use a maintenance window for the index on large employee tables. [Docker and upgrade guide](RELEASE.md)
+
+## Reconciliação local de colaboradores (v1.1.0)
+
+A sincronização atualiza apenas o snapshot de leitura. A criação de colaboradores depende de prévia e confirmação explícita. Em **External directory**, selecione até 25 usuários, abra **Reconcile selected users** e revise as ações antes de confirmar.
+
+- O fluxo exige `entra:read`, `entra:provision_local` e `entra:manage_links`. Criar exige também `employees:create`. O seletor de departamentos usa `departments:read`. Vínculos e desvínculos manuais existentes continuam com suas permissões atuais.
+- A identidade precisa estar presente no último snapshot concluído do tenant configurado, com até 24 horas. Exige-se um Member habilitado com `employeeType=Employee` ou, se o tipo estiver vazio, matrícula informada no Entra. Classificações explícitas de não colaborador são bloqueadas. O operador confirma que a conta pertence a uma pessoa.
+- A identidade usa o par tenant e ID do objeto Entra. Para encontrar possíveis duplicatas, o sistema usa `mail` validado, sem espaços nas pontas e sem distinção de maiúsculas. A existência de um e-mail igual bloqueia novas criações. Vincular exige escolher explicitamente o único ID local correspondente e preserva os dados do colaborador.
+- A proposta usa `employeeId` para matrícula, `givenName` e `surname` para nome e sobrenome, e `jobTitle` para cargo. O operador pode preencher valores locais verificados e selecionar um departamento ativo. O sistema não inventa dados ausentes.
+- Novos colaboradores ficam inativos, sem senha, gestor ou grupos. O fluxo não habilita login nem modifica o Entra.
+- A aplicação revalida o lote e verifica a revisão do snapshot. Um item bloqueado cancela todas as alterações de colaboradores e vínculos. Repetir um lote aplicado retorna os vínculos existentes. A auditoria registra operador, horário, IDs e resultado. Para desfazer um vínculo, desvincule explicitamente. O colaborador permanece cadastrado.
+- Antes de atualizar, faça backup. Rode `python -m backend.app.scripts.migrate` e `python -m backend.app.scripts.seed_permissions`, depois sincronize novamente. Se houver e-mails locais duplicados ignorando maiúsculas e espaços nas pontas, a migração é interrompida. Resolva os registros manualmente antes de tentar novamente.

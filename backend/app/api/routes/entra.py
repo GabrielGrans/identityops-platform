@@ -5,14 +5,18 @@ from uuid import UUID
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import inspect, or_, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.app.api.routes.governance import Cursor, Limit, page
-from backend.app.core.authorization import require_permission
+from backend.app.core.authorization import effective_permissions, require_permission
 from backend.app.core.config import Settings, settings
 from backend.app.core.database import get_db
 from backend.app.models.employee import Employee
 from backend.app.models.entra import EntraGroup, EntraMembership, EntraSyncRun, EntraUser
+from backend.app.schemas.provisioning import ProvisionRequest, ReconciliationRequest, ReconciliationResult
+from backend.app.services import provisioning_service
+from backend.app.services.audit_service import record_event
 from backend.app.schemas.entra import EntraStatus, ExternalGroup, ExternalUser, LinkInput, SyncRunResponse
 from backend.app.services import entra_service as service
 from backend.app.services.graph_client import DirectorySnapshot, GraphClient, GraphConfig, GraphError, MESSAGES, TokenCache
@@ -23,6 +27,7 @@ DB = Annotated[Session, Depends(get_db)]
 Reader = Annotated[Employee, Depends(require_permission("entra:read"))]
 Operator = Annotated[Employee, Depends(require_permission("entra:sync"))]
 LinkManager = Annotated[Employee, Depends(require_permission("entra:manage_links"))]
+Provisioner = Annotated[Employee, Depends(require_permission("entra:provision_local"))]
 Search = Annotated[str | None, Query(max_length=150)]
 SnapshotLoader = Callable[[GraphConfig], DirectorySnapshot]
 token_cache = TokenCache()
@@ -60,7 +65,9 @@ def http_error(error: GraphError) -> HTTPException:
 
 def migrated(db: Session) -> bool:
     tables = set(inspect(db.connection()).get_table_names())
-    return {"identityops_schema_version", "entra_sync_runs", "entra_users", "entra_groups", "entra_memberships"} <= tables
+    if not {"identityops_schema_version", "entra_sync_runs", "entra_users", "entra_groups", "entra_memberships"} <= tables:
+        return False
+    return "user_type" in {column["name"] for column in inspect(db.connection()).get_columns("entra_users")}
 
 
 def tenant_scope(config: Settings, db: Session) -> str:
@@ -182,3 +189,35 @@ def link_user(object_id: UUID, data: LinkInput, db: DB, actor: LinkManager, conf
 @router.put("/groups/{object_id}/link", response_model=ExternalGroup)
 def link_group(object_id: UUID, data: LinkInput, db: DB, actor: LinkManager, config: Config):
     return link(db, EntraGroup, config, object_id, actor, data)
+
+
+def require_provisioning_permissions(db: Session, actor: Employee, data: ReconciliationRequest):
+    required = {"entra:read", "entra:manage_links"}
+    if any(item.action == "create" for item in data.items):
+        required.add("employees:create")
+    if not required.issubset(set(db.scalars(effective_permissions(actor.id)))):
+        raise HTTPException(403, "Additional local reconciliation permissions are required")
+
+
+@router.post("/reconciliation/preview", response_model=ReconciliationResult)
+def preview_reconciliation(data: ReconciliationRequest, db: DB, actor: Provisioner, config: Config):
+    require_provisioning_permissions(db, actor, data)
+    tenant = tenant_scope(config, db)
+    return provisioning_service.inspect_batch(db, tenant, data)[0]
+
+
+@router.post("/reconciliation/apply", response_model=ReconciliationResult)
+def apply_reconciliation(data: ProvisionRequest, db: DB, actor: Provisioner, config: Config):
+    require_provisioning_permissions(db, actor, data)
+    tenant = tenant_scope(config, db)
+    try:
+        return provisioning_service.apply_batch(db, actor.id, tenant, data)
+    except SQLAlchemyError:
+        db.rollback()
+        try:
+            record_event(db, actor.id, "entra.provision.failed", "entra_users", None, tenant_id=tenant,
+                         object_ids=[str(item.object_id) for item in data.items])
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+        raise HTTPException(503, "The batch could not be saved. Preview again before retrying.") from None
