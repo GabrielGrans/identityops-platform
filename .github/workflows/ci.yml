@@ -1,8 +1,6 @@
 name: IdentityOps CI and release packaging
 
 on:
-  push:
-  pull_request:
   workflow_dispatch:
     inputs:
       release_tag:
@@ -32,6 +30,8 @@ jobs:
       IDENTITYOPS_TEST_DATABASE_URL: postgresql+psycopg://identityops_test:identityops_test@localhost:5432/identityops_test
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: beb679e3f7fa794496d32c31391d04afb69547af
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -47,6 +47,8 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: beb679e3f7fa794496d32c31391d04afb69547af
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -61,10 +63,13 @@ jobs:
     needs: [backend, frontend]
     runs-on: ubuntu-latest
     env:
+      IDENTITYOPS_VERSION: '1.0.1'
       POSTGRES_PASSWORD: identityops-smoke-only
       SECRET_KEY: identityops-smoke-secret-only-not-for-production
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: beb679e3f7fa794496d32c31391d04afb69547af
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -91,13 +96,15 @@ jobs:
       - name: Package release
         run: |
           mkdir release
-          docker save identityops-api:1.0.0 identityops-web:1.0.0 postgres:17 | gzip > release/identityops-images.tar.gz
+          docker save identityops-api:1.0.1 identityops-web:1.0.1 postgres:17 | gzip > release/identityops-images.tar.gz
           cp infrastructure/docker/compose.release.yml docs/RELEASE.md docs/IAM.md docs/ENTRA_ID.md docs/CERTIFICATION.md docs/DASHBOARD.md .env.example LICENSE release/
+          sed -i 's/:-1\.0\.0}/:-1.0.1}/g' release/compose.release.yml
+          sed -i 's/IdentityOps 1\.0\.0/IdentityOps 1.0.1/g; s/identityops-1\.0\.0/identityops-1.0.1/g' release/RELEASE.md
           cd release
           sha256sum identityops-images.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: identityops-1.0.0
+          name: identityops-1.0.1
           path: release/
           include-hidden-files: true
       - name: Stop smoke stack
@@ -113,7 +120,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: identityops-1.0.0
+          name: identityops-1.0.1
           path: release
       - name: Attach package to the matching draft
         env:
@@ -122,9 +129,9 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
-          [[ "$RELEASE_TAG" == v1.0.0 ]]
+          [[ "$RELEASE_TAG" == v1.0.1 ]]
           gh release view "$RELEASE_TAG" --json isDraft,targetCommitish |
-            jq -e --arg sha "$GITHUB_SHA" '.isDraft and .targetCommitish == $sha'
+            jq -e --arg sha "beb679e3f7fa794496d32c31391d04afb69547af" '.isDraft and .targetCommitish == $sha'
           (cd release && sha256sum -c SHA256SUMS)
           filename="identityops-${RELEASE_TAG#v}-linux-amd64.tar"
           tar -cf "$filename" -C release .
