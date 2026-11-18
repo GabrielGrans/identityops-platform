@@ -49,7 +49,7 @@ Its architecture is designed to support identity governance processes, including
 
 ### Frontend
 - **React + TypeScript:** Web interface for IAM administration.
-- **Administrative Dashboard:** Overview interface with illustrative dashboard metrics and activity data.
+- **Administrative Dashboard:** Permission-scoped inventory, governance and security indicators from the local IAM database.
 - **Employee Management Interface:** Frontend integration with the employee API.
 - **IAM Navigation:** Structured navigation for identity, access, and governance modules.
 
@@ -256,7 +256,9 @@ Docker images for controlled deployment. See the [release guide](docs/RELEASE.md
 
 ## Project Status
 
-**Current version: v0.9.0**
+**Upcoming version: v1.0.0**
+
+The governance dashboard brings together current IAM counts and recorded activity. [Dashboard and metric guide](docs/DASHBOARD.md)
 
 Access certification campaigns capture local memberships for assigned reviewers to retain or revoke with a recorded justification. [Campaign guide](docs/CERTIFICATION.md)
 
@@ -295,7 +297,7 @@ Sua arquitetura foi projetada para suportar processos de governança de identida
 
 ### Frontend
 - **React + TypeScript:** Interface web para administração da plataforma IAM.
-- **Dashboard Administrativo:** Interface de visão geral com indicadores e atividades demonstrativas.
+- **Dashboard Administrativo:** Inventário e indicadores de governança e segurança do banco IAM local, conforme as permissões do usuário.
 - **Gerenciamento de Colaboradores:** Interface integrada à API de colaboradores.
 - **Navegação IAM:** Estrutura de navegação para módulos de identidade, acesso e governança.
 
@@ -502,7 +504,9 @@ O fluxo manual gera imagens Docker para implantação controlada. Consulte o [gu
 
 ## Status do Projeto
 
-**Versão atual: v0.9.0**
+**Próxima versão: v1.0.0**
+
+O painel de governança reúne indicadores atuais de IAM e atividades registradas. [Guia do painel e métricas](docs/DASHBOARD.md)
 
 As campanhas de certificação capturam as associações locais para que revisores designados mantenham ou revoguem acessos com justificativa. [Guia de campanhas](docs/CERTIFICATION.md)
 

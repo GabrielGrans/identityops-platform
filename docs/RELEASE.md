@@ -1,4 +1,4 @@
-# IdentityOps 0.9.0
+# IdentityOps 1.0.0
 
 ## Pacote Docker
 
@@ -27,13 +27,13 @@ A interface fica em `http://127.0.0.1:8080` e a documentação OpenAPI em `http:
 
 ## Instalações existentes
 
-Faça backup do PostgreSQL antes da atualização e aponte a nova API para o mesmo banco de dados da instalação. A pilha Docker de release usa um volume próprio para instalações novas. Para atualizar a v0.8.0, execute `python -m backend.app.scripts.migrate` com a API nova e o banco existente. No Compose, use `docker compose run --rm --no-deps api python -m backend.app.scripts.migrate`. A migração cria as tabelas de certificação de acesso e registra a revisão no Alembic.
+Faça backup do PostgreSQL antes da atualização e aponte a nova API para o mesmo banco de dados da instalação. A pilha Docker de release usa um volume próprio para instalações novas. Para atualizar a v0.9.0, execute `python -m backend.app.scripts.migrate` com a API nova e o banco existente. No Compose, use `docker compose run --rm --no-deps api python -m backend.app.scripts.migrate`. A revisão `dashboard_100` cria o índice de auditoria por horário e ID. Em um banco de grande porte, programe uma janela de manutenção para aplicar o índice. Consulte o [guia do painel](DASHBOARD.md).
 
-Execute `python -m backend.app.scripts.seed_permissions` com as variáveis da instalação, ou execute o módulo por meio de `docker compose exec api` quando estiver usando a pilha Docker. A operação atualiza o grupo existente `IT Administrators` e cadastra `certifications:manage` e `certifications:review`. O script também restaura as permissões padrão desse grupo. Para funções delegadas, atribua cada permissão conforme o [guia IAM](IAM.md).
+A atualização da v0.9.0 reutiliza as permissões existentes. Consulte o [guia do painel](DASHBOARD.md) para saber quais permissões habilitam cada seção.
 
 ## CI e entrega
 
-O workflow `IdentityOps CI and release packaging` executa Pytest com PostgreSQL 17, ESLint e o build do Vite. A execução manual via `workflow_dispatch` também sobe a pilha Docker, verifica a página inicial e a conexão com o banco pela API e gera o artefato `identityops-0.9.0` para implantação manual. Ao informar `release_tag`, o workflow anexa o pacote ao rascunho cujo commit corresponde à execução. A publicação da release e a implantação são manuais.
+O workflow `IdentityOps CI and release packaging` executa Pytest com PostgreSQL 17, ESLint e o build do Vite. A execução manual via `workflow_dispatch` também sobe a pilha Docker, verifica a página inicial e a conexão com o banco pela API e gera o artefato `identityops-1.0.0` para implantação manual. Ao informar `release_tag`, o workflow anexa o pacote ao rascunho cujo commit corresponde à execução. A publicação da release e a implantação são manuais.
 
 Para montar a pilha a partir do repositório, configure `.env` e execute:
 
