@@ -10,6 +10,8 @@ The format is based on Keep a Changelog.
 - Validate person eligibility, snapshot freshness and duplicate normalized emails. Apply batches atomically with audit events and inactive defaults.
 - Introduce the `provisioning_110` migration and dedicated local provisioning permission.
 
+**Português.** A reconciliação do Entra permite revisar conflitos e confirmar a criação de colaboradores inativos ou o vínculo com um registro local. O lote é atômico e auditado. A atualização exige a migração `provisioning_110` e a atualização das permissões.
+
 ## [1.0.1] - 2026-11-18
 
 - Refresh the IdentityOps login, navigation and favicon with the Grans Enterprise brand.
