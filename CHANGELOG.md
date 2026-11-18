@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [1.0.0] - 2026-11-18
+
+- Replace dashboard demo data with versioned IAM summary and audit activity endpoints and a responsive, permission-scoped dashboard.
+- Show current inventory, approval queues, certification progress, and recorded lifecycle, revocation, and Entra failure counts. Document metric definitions in English and Portuguese.
+- Add the `dashboard_100` migration for the chronological audit index. Existing installations run `python -m backend.app.scripts.migrate`.
+
 ## [0.9.0] - 2026-11-18
 
 ### Added

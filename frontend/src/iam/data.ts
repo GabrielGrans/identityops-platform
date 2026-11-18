@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { request } from "../services/api";
+import { ApiError, request } from "../services/api";
 
 export interface Session {
   token: string;
@@ -17,7 +17,7 @@ export interface CatalogItem {
   action?: string;
 }
 
-export type QueryResult<T> = { data?: T; error?: string };
+export type QueryResult<T> = { data?: T; error?: string; errorStatus?: number };
 export function useQuery<T>(token: string, path: string | null, revision = 0, keepPrevious = false) {
   const [result, setResult] = useState<QueryResult<T> & { key?: string; path?: string; token?: string }>({});
   const key = path === null ? undefined : `${revision}:${path}`;
@@ -27,7 +27,7 @@ export function useQuery<T>(token: string, path: string | null, revision = 0, ke
     request<T>(path, { signal: controller.signal }, token).then(
       (data) => setResult({ key, path, token, data }),
       (error: Error) => {
-        if (!controller.signal.aborted) setResult({ key, path, token, error: error.message });
+        if (!controller.signal.aborted) setResult({ key, path, token, error: error.message, errorStatus: error instanceof ApiError ? error.status : undefined });
       },
     );
     return () => controller.abort();

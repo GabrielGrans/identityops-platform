@@ -48,7 +48,7 @@ def roles(db_session, test_data):
 @pytest.fixture
 def schema(db_session, roles):
     bind = db_session.get_bind()
-    upgrade_database(bind)
+    upgrade_database(bind, revision="certification_090")
     try:
         yield roles
     finally:
@@ -98,8 +98,8 @@ def test_additive_migration_from_v080(client, admin_token, db_session, roles):
         assert client.get(URL, headers=auth(admin_token)).status_code == 503
         count_before = len(db_session.execute(select(employee_groups)).all())
         db_session.commit()
-        upgrade_database(bind)
-        upgrade_database(bind)
+        upgrade_database(bind, revision="certification_090")
+        upgrade_database(bind, revision="certification_090")
         assert set(inspect(bind).get_table_names()) - before == {
             "certification_campaigns", "certification_reviewers", "certification_items",
         }
