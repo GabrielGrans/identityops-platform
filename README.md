@@ -15,7 +15,7 @@
 
 Microsoft Entra ID integration, identity governance, access reviews, audit logging, and automated Docker packaging.
 
-[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v0.8.0) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v0.8.0/identityops-0.8.0-linux-amd64.zip) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md)
+[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v0.8.0) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v0.8.0/identityops-0.8.0-linux-amd64.zip) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md) · [Access Certification Guide](docs/CERTIFICATION.md)
 
 ---
 
@@ -176,7 +176,7 @@ docker compose up -d
 ### 6. Apply database migrations and start the backend API
 
 Run `python -m backend.app.scripts.migrate --bootstrap` for a new database.
-Use `python -m backend.app.scripts.migrate` for an existing v0.7.0 database.
+Use `python -m backend.app.scripts.migrate` for an existing v0.8.0 database.
 
 ```powershell
 python -m uvicorn backend.app.main:app --reload
@@ -254,7 +254,9 @@ Docker images for controlled deployment. See the [release guide](docs/RELEASE.md
 
 ## Project Status
 
-**Project version: v0.8.0**
+**Upcoming version: v0.9.0**
+
+Access certification campaigns capture local memberships for assigned reviewers to retain or revoke with a recorded justification. [Campaign guide](docs/CERTIFICATION.md)
 
 IdentityOps is an active development project.
 
@@ -420,7 +422,7 @@ docker compose up -d
 ### 6. Aplicar as migrações e iniciar a API
 
 Em um banco novo, execute `python -m backend.app.scripts.migrate --bootstrap`.
-Em um banco v0.7.0 existente, execute `python -m backend.app.scripts.migrate`.
+Em um banco v0.8.0 existente, execute `python -m backend.app.scripts.migrate`.
 
 ```powershell
 python -m uvicorn backend.app.main:app --reload
@@ -498,7 +500,9 @@ O fluxo manual gera imagens Docker para implantação controlada. Consulte o [gu
 
 ## Status do Projeto
 
-**Versão do projeto: v0.8.0**
+**Próxima versão: v0.9.0**
+
+As campanhas de certificação capturam as associações locais para que revisores designados mantenham ou revoguem acessos com justificativa. [Guia de campanhas](docs/CERTIFICATION.md)
 
 O IdentityOps está em desenvolvimento ativo.
 

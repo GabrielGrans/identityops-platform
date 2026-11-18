@@ -1,3 +1,4 @@
+import { CertificationPage } from "./CertificationPage";
 import { EntraPage } from "./EntraPage";
 import { CatalogPage } from "./CatalogPage";
 import { LifecyclePage } from "./LifecyclePage";
@@ -17,6 +18,8 @@ export function IamPage({ page, token, employeeId }: { page: string; token: stri
     if (page === "Departments" && permissions.includes("departments:read")) return <CatalogPage catalog="departments" session={session} />;
     if (page === "Microsoft Entra ID" && permissions.includes("entra:read")) return <EntraPage session={session} />;
     if (page === "Audit Logs" && permissions.includes("audit:read")) return <AuditPage session={session} />;
+    if (page === "Access Certification" && permissions.some((permission) =>
+      permission === "certifications:manage" || permission === "certifications:review")) return <CertificationPage session={session} />;
     if (page === "Access Reviews" && permissions.includes("reviews:manage")) return <ReviewsPage session={session} />;
     if (page === "Identity Lifecycle" && permissions.includes("access:manage") &&
       lifecyclePermissions.some((permission) => permissions.includes(permission))) return <LifecyclePage session={session} />;
