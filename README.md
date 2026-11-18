@@ -1,9 +1,21 @@
 # IdentityOps Platform
 ### Enterprise Identity & Access Management Platform
 
+[![Release](https://img.shields.io/badge/Release-v0.8.0-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v0.8.0)
+[![CI](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-FastAPI-blue)
+![React](https://img.shields.io/badge/React-TypeScript-3178C6)
+![IAM](https://img.shields.io/badge/IAM-Microsoft%20Entra%20ID-0078D4)
+
+**Identity governance · RBAC · Access workflows · Lifecycle automation · Microsoft Entra ID**
+
 **English | Português**
 
-[Published releases / Versões publicadas](https://github.com/GabrielGrans/identityops-platform/releases) · [Installation and upgrades / Instalação e atualização](docs/RELEASE.md) · [Guia de operação IAM](docs/IAM.md) · [Microsoft Entra ID](docs/ENTRA_ID.md)
+### Latest Release — v0.8.0
+
+Microsoft Entra ID integration, identity governance, access reviews, audit logging, and automated Docker packaging.
+
+[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v0.8.0) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v0.8.0/identityops-0.8.0-linux-amd64.zip) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md)
 
 ---
 
