@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [1.0.1] (Unreleased)
+
+- Refresh the IdentityOps login, navigation and favicon with the Grans Enterprise brand.
+- Add a scalable hexagonal G emblem, README banner and author credit.
+
 ## [1.0.0] - 2026-11-18
 
 - Replace dashboard demo data with versioned IAM summary and audit activity endpoints and a responsive, permission-scoped dashboard.

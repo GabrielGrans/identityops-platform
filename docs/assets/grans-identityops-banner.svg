@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 292" role="img" aria-labelledby="title description">
+  <title id="title">Grans Enterprise | IdentityOps</title>
+  <desc id="description">Identity &amp; Access Management Platform, engineered by Gabriel Grans</desc>
+  <defs>
+    <clipPath id="frame"><rect width="1000" height="292" rx="20"/></clipPath>
+    <linearGradient id="ribbon" x1="0" x2="1" y1="0" y2="0">
+      <stop stop-color="#191a1e"/>
+      <stop offset=".72" stop-color="#852322"/>
+      <stop offset="1" stop-color="#d42e26"/>
+    </linearGradient>
+    <linearGradient id="graphite" x2="1" y2="1">
+      <stop stop-color="#101114"/>
+      <stop offset="1" stop-color="#1a1c21"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#frame)">
+    <path fill="url(#graphite)" d="M0 0h1000v292H0z"/>
+    <path d="M0 53Q103 14 157 0H0z" fill="#391b1c"/>
+    <path d="M0 53Q103 14 157 0" fill="none" stroke="#982824" stroke-width="2"/>
+    <path d="M560 292c184-71 292-86 440-94v94z" fill="#2b191b"/>
+    <path d="M560 292c184-71 292-86 440-94" fill="none" stroke="url(#ribbon)" stroke-width="3"/>
+    <g transform="translate(64 67) scale(2.44)">
+      <path d="M32 4 56 18v28L32 60 8 46V18z" fill="#131417" stroke="#d42e26" stroke-width="5.5" stroke-linejoin="round"/>
+      <path d="M43 22a15 15 0 1 0 2 20V33H37" fill="none" stroke="#fff" stroke-width="5.5" stroke-linejoin="round"/>
+      <circle cx="30" cy="33" r="3.9" fill="#d42e26"/>
+    </g>
+    <path d="M245 74v143" stroke="#d42e26" stroke-width="2"/>
+    <g font-family="Arial, Helvetica, sans-serif">
+      <text x="274" y="96" fill="#f25044" font-size="22" font-weight="700" letter-spacing="3">GRANS ENTERPRISE</text>
+      <text x="270" y="157" fill="#fff" font-size="65" font-weight="700" letter-spacing="-2">Identity<tspan fill="#f25044">Ops</tspan></text>
+      <text x="274" y="194" fill="#e0e1e4" font-size="24">Identity &amp; Access Management Platform</text>
+      <text x="274" y="226" fill="#b9bbc0" font-size="17">Engineered by Gabriel Grans</text>
+    </g>
+  </g>
+</svg>

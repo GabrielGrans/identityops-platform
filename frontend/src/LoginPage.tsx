@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { Command, LockKeyhole, Mail } from "lucide-react";
+import { LockKeyhole, Mail } from "lucide-react";
+import { Brand, BrandCredit } from "./Brand";
 import { login } from "./services/api";
 
 interface LoginPageProps {
@@ -34,18 +35,9 @@ function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <main className="login-page">
       <section className="login-card">
-        <div className="login-brand">
-          <div className="login-brand-mark">
-            <Command size={25} strokeWidth={2.5} />
-          </div>
-          <div>
-            <strong>IdentityOps</strong>
-            <span>IDENTITY PLATFORM</span>
-          </div>
-        </div>
+        <Brand className="grans-login" />
 
         <div className="login-heading">
-          <span className="eyebrow">IDENTITY & ACCESS MANAGEMENT</span>
           <h1>Welcome back</h1>
           <p>Sign in to access your identity management workspace.</p>
         </div>
@@ -95,7 +87,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
         </form>
 
         <div className="login-footer">
-          IdentityOps Platform · Secure access
+          <BrandCredit />
         </div>
       </section>
     </main>

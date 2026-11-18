@@ -1,0 +1,71 @@
+.grans-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.grans-emblem { display: block; flex: none; width: 48px; height: 48px; }
+.grans-copy { display: grid; min-width: 0; gap: 3px; }
+.grans-company { color: #f46857; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; }
+.grans-product { color: #fff; font-size: 1.4rem; font-weight: 750; line-height: 1.1; letter-spacing: -0.035em; }
+.grans-product > span { color: #f46857; }
+.grans-subtitle { color: #b9bbc0; font-size: 0.72rem; line-height: 1.35; }
+.grans-credit { margin: 0; color: #b9bbc0; font-size: 0.72rem; line-height: 1.4; }
+
+.grans-sidebar { padding: 0 7px 24px; }
+.grans-sidebar .grans-emblem { width: 38px; height: 38px; }
+.grans-header { display: none; }
+.sidebar-bottom > .grans-credit { margin: 14px 8px 0; }
+
+.login-page, .auth-loading {
+  color-scheme: dark;
+  background: radial-gradient(ellipse at 50% 0%, #211d20 0%, #101114 65%);
+}
+
+.login-card {
+  max-width: 450px;
+  border: 1px solid #3b3d43;
+  border-top: 3px solid #ad2824;
+  background: #1a1c20;
+  box-shadow: 0 24px 70px #0007;
+}
+.login-card .grans-brand { margin-bottom: 32px; }
+.login-card .grans-emblem { width: 54px; height: 54px; }
+.login-card .grans-product { font-size: 1.75rem; }
+.login-heading h1 { color: #fff; margin-top: 0; }
+.login-heading p, .login-form > label { color: #d0d1d4; font-size: 0.83rem; }
+.login-input-wrap { background: #131519; border-color: #676a72; color: #b9bbc0; }
+.login-input-wrap input { color: #fff; font-size: 1rem; }
+.login-input-wrap input::placeholder { color: #a6a8ae; }
+.login-input-wrap:focus-within { border-color: #fff; outline: 1px solid #fff; box-shadow: none; }
+.login-submit { background: #ad2824; font-size: 0.875rem; }
+.login-submit:hover { background: #97221e; }
+.login-submit:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.login-error { color: #fff; background: #392221; border-color: #a7463c; }
+.login-footer { border-top: 1px solid #3b3d43; margin-top: 26px; padding-top: 16px; }
+
+.app-shell .sidebar { background: #181a1e; color: #d0d1d4; }
+.app-shell .sidebar .nav-item.active { background: #332322; color: #fff; box-shadow: inset 3px 0 #bc3028; }
+.app-shell .sidebar .nav-item.active svg { color: #fff; }
+.app-shell .sidebar .user-avatar,
+.app-shell .topbar-avatar { background: #383a40; color: #fff; }
+
+@media (max-width: 800px) {
+  .grans-sidebar { justify-content: center; padding-inline: 0; }
+  .grans-sidebar .grans-copy, .sidebar-bottom > .grans-credit, .topbar .breadcrumb { display: none; }
+  .grans-header { display: flex; gap: 7px; }
+  .grans-header .grans-emblem { width: 27px; height: 27px; }
+  .grans-header .grans-company { color: #93211d; font-size: 0.64rem; }
+  .grans-header .grans-product { color: #191a1e; font-size: 0.95rem; }
+  .grans-header .grans-subtitle { display: none; }
+  .governance-shell .grans-header .grans-company { color: #f46857; }
+  .governance-shell .grans-header .grans-product { color: #fff; }
+  .app-shell .sidebar .logout-button { display: inline-flex; }
+  .app-shell .sidebar .user-profile { flex-wrap: wrap; }
+}
+
+@media (max-width: 360px) {
+  .login-page { padding: 16px; }
+  .login-card .grans-emblem { width: 43px; height: 43px; }
+}

@@ -4,8 +4,6 @@
 .governance-shell .breadcrumb strong { color: #f0f3f6; }
 .governance-shell .workspace-selector { background: #20262e; border-color: #343d48; }
 .governance-shell .nav-item.active { color: #fff; background: #302424; box-shadow: inset 3px 0 #ed574a; }
-.governance-shell .brand-mark { background: #a52d25; }
-.governance-shell .topbar-avatar, .governance-shell .user-avatar, .governance-shell .workspace-avatar { background: #302726; color: #ffb8a7; }
 
 .gov {
   --muted: #aeb8c4; --surface: #191f26; --line: #343d48; --accent: #ed574a;

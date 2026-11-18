@@ -3,9 +3,7 @@ import {
   Activity,
   Building2,
   CheckCircle2,
-  ChevronDown,
   CircleHelp,
-  Command,
   LayoutDashboard,
   LockKeyhole,
   LogOut,
@@ -17,6 +15,7 @@ import {
 } from "lucide-react";
 
 import "./App.css";
+import { Brand, BrandCredit, BrandEmblem } from "./Brand";
 import LoginPage from "./LoginPage";
 import DashboardPage from "./dashboard/DashboardPage";
 import EmployeesPage from "./EmployeesPage";
@@ -103,9 +102,7 @@ function App() {
   if (authLoading) {
     return (
       <div className="auth-loading">
-        <div className="login-brand-mark">
-          <Command size={25} />
-        </div>
+        <BrandEmblem />
         <p>Verifying your session...</p>
       </div>
     );
@@ -123,24 +120,7 @@ function App() {
   return (
     <div className={isDashboard ? "app-shell governance-shell" : "app-shell"}>
       <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">
-            <Command size={23} strokeWidth={2.5} />
-          </div>
-          <div className="brand-copy">
-            <span className="brand-name">IdentityOps</span>
-            <span className="brand-subtitle">IDENTITY PLATFORM</span>
-          </div>
-        </div>
-
-        <div className="workspace-selector">
-          <div className="workspace-avatar">IO</div>
-          <div className="workspace-copy">
-            <span className="workspace-name">IdentityOps</span>
-            <span className="workspace-plan">Enterprise workspace</span>
-          </div>
-          <ChevronDown size={16} />
-        </div>
+        <Brand className="grans-sidebar" />
 
         <nav className="sidebar-nav">
           {["OVERVIEW", "IDENTITY MANAGEMENT", "ACCESS MANAGEMENT", "GOVERNANCE"].map(
@@ -199,13 +179,15 @@ function App() {
               <LogOut size={17} />
             </button>
           </div>
+          <BrandCredit />
         </div>
       </aside>
 
       <main className="main-area">
         <header className="topbar">
+          <Brand className="grans-header" />
           <div className="breadcrumb">
-            <span>Workspace</span>
+            <span>IdentityOps</span>
             <span className="breadcrumb-separator">/</span>
             <strong>{activePage}</strong>
           </div>
