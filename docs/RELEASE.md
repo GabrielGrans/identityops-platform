@@ -30,7 +30,7 @@ Execute `python -m backend.app.scripts.seed_permissions` com as variáveis da in
 
 ## CI e entrega
 
-O workflow `IdentityOps CI and release packaging` executa Pytest com PostgreSQL 17, ESLint e o build do Vite. A execução manual via `workflow_dispatch` também sobe a pilha Docker, verifica a página inicial e a conexão com o banco pela API e gera o artefato `identityops-0.7.0` para implantação manual. O workflow não publica imagens em um registro nem implanta em produção.
+O workflow `IdentityOps CI and release packaging` executa Pytest com PostgreSQL 17, ESLint e o build do Vite. A execução manual via `workflow_dispatch` também sobe a pilha Docker, verifica a página inicial e a conexão com o banco pela API e gera o artefato `identityops-0.7.0` para implantação manual. Ao informar `release_tag`, o workflow anexa o pacote ao rascunho cujo commit corresponde à execução. A publicação da release e a implantação são manuais.
 
 Para montar a pilha a partir do repositório, configure `.env` e execute:
 
