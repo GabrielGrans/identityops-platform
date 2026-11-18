@@ -1,7 +1,7 @@
 # IdentityOps Platform
 ### Enterprise Identity & Access Management Platform
 
-[![Release](https://img.shields.io/badge/Release-v0.9.0-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v0.9.0)
+[![Release](https://img.shields.io/badge/Release-v1.0.0-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.0.0)
 [![CI](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-FastAPI-blue)
 ![React](https://img.shields.io/badge/React-TypeScript-3178C6)
@@ -11,13 +11,13 @@
 
 **English | Português**
 
-### Latest Release — v0.9.0
+### Latest Release — v1.0.0
 
-**English.** Access Certification Campaigns let assigned reviewers retain or revoke active local group memberships with a required justification and an audit trail.
+**English.** The IAM Governance & Security Dashboard shows current IAM inventory, approval and review queues, certification progress, and recorded security events according to each user's permissions.
 
-**Português.** As campanhas de certificação de acesso permitem que revisores designados mantenham ou revoguem associações ativas a grupos locais com justificativa obrigatória e registro de auditoria.
+**Português.** O painel de governança e segurança IAM apresenta inventário atualizado, filas de aprovação e revisão, progresso das certificações e eventos de segurança registrados conforme as permissões do usuário.
 
-[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v0.9.0) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v0.9.0/identityops-0.9.0-linux-amd64.tar) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md) · [Access Certification Guide](docs/CERTIFICATION.md)
+[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.0.0) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v1.0.0/identityops-1.0.0-linux-amd64.tar) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md) · [Access Certification Guide](docs/CERTIFICATION.md) · [Dashboard Guide](docs/DASHBOARD.md)
 
 ---
 
@@ -256,7 +256,7 @@ Docker images for controlled deployment. See the [release guide](docs/RELEASE.md
 
 ## Project Status
 
-**Upcoming version: v1.0.0**
+**Current version: v1.0.0**
 
 The governance dashboard brings together current IAM counts and recorded activity. [Dashboard and metric guide](docs/DASHBOARD.md)
 
@@ -504,7 +504,7 @@ O fluxo manual gera imagens Docker para implantação controlada. Consulte o [gu
 
 ## Status do Projeto
 
-**Próxima versão: v1.0.0**
+**Versão atual: v1.0.0**
 
 O painel de governança reúne indicadores atuais de IAM e atividades registradas. [Guia do painel e métricas](docs/DASHBOARD.md)
 
