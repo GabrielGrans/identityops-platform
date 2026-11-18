@@ -1,7 +1,7 @@
 # IdentityOps Platform
 ### Enterprise Identity & Access Management Platform
 
-[![Release](https://img.shields.io/badge/Release-v0.8.0-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v0.8.0)
+[![Release](https://img.shields.io/badge/Release-v0.9.0-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v0.9.0)
 [![CI](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-FastAPI-blue)
 ![React](https://img.shields.io/badge/React-TypeScript-3178C6)
@@ -11,11 +11,13 @@
 
 **English | Português**
 
-### Latest Release — v0.8.0
+### Latest Release — v0.9.0
 
-Microsoft Entra ID integration, identity governance, access reviews, audit logging, and automated Docker packaging.
+**English.** Access Certification Campaigns let assigned reviewers retain or revoke active local group memberships with a required justification and an audit trail.
 
-[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v0.8.0) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v0.8.0/identityops-0.8.0-linux-amd64.zip) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md) · [Access Certification Guide](docs/CERTIFICATION.md)
+**Português.** As campanhas de certificação de acesso permitem que revisores designados mantenham ou revoguem associações ativas a grupos locais com justificativa obrigatória e registro de auditoria.
+
+[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v0.9.0) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v0.9.0/identityops-0.9.0-linux-amd64.tar) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md) · [Access Certification Guide](docs/CERTIFICATION.md)
 
 ---
 
@@ -254,7 +256,7 @@ Docker images for controlled deployment. See the [release guide](docs/RELEASE.md
 
 ## Project Status
 
-**Upcoming version: v0.9.0**
+**Current version: v0.9.0**
 
 Access certification campaigns capture local memberships for assigned reviewers to retain or revoke with a recorded justification. [Campaign guide](docs/CERTIFICATION.md)
 
@@ -500,7 +502,7 @@ O fluxo manual gera imagens Docker para implantação controlada. Consulte o [gu
 
 ## Status do Projeto
 
-**Próxima versão: v0.9.0**
+**Versão atual: v0.9.0**
 
 As campanhas de certificação capturam as associações locais para que revisores designados mantenham ou revoguem acessos com justificativa. [Guia de campanhas](docs/CERTIFICATION.md)
 
