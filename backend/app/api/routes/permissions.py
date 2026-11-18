@@ -21,16 +21,17 @@ router = APIRouter(
     "",
     response_model=PermissionResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission("permissions:manage"))],
 )
 def create_permission(
     data: PermissionCreate,
     db: Session = Depends(get_db),
+    actor=Depends(require_permission("permissions:manage")),
 ):
     try:
         return permission_service.create_permission(
             db,
             data.model_dump(),
+            actor_id=actor.id,
         )
     except ValueError as error:
         raise HTTPException(status_code=409, detail=str(error))
@@ -73,12 +74,12 @@ def get_permission(
 @router.put(
     "/{permission_id}",
     response_model=PermissionResponse,
-    dependencies=[Depends(require_permission("permissions:manage"))],
 )
 def update_permission(
     permission_id: int,
     data: PermissionUpdate,
     db: Session = Depends(get_db),
+    actor=Depends(require_permission("permissions:manage")),
 ):
     permission = permission_service.get_permission(
         db,
@@ -96,6 +97,7 @@ def update_permission(
             db,
             permission,
             data.model_dump(),
+            actor_id=actor.id,
         )
     except ValueError as error:
         raise HTTPException(status_code=409, detail=str(error))
@@ -104,11 +106,11 @@ def update_permission(
 @router.delete(
     "/{permission_id}",
     response_model=PermissionResponse,
-    dependencies=[Depends(require_permission("permissions:manage"))],
 )
 def deactivate_permission(
     permission_id: int,
     db: Session = Depends(get_db),
+    actor=Depends(require_permission("permissions:manage")),
 ):
     permission = permission_service.get_permission(
         db,
@@ -124,4 +126,5 @@ def deactivate_permission(
     return permission_service.deactivate_permission(
         db,
         permission,
+        actor_id=actor.id,
     )

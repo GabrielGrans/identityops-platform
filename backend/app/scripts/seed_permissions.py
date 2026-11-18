@@ -1,8 +1,12 @@
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from backend.app.core.database import SessionLocal
+from backend.app.models.associations import group_permissions
 from backend.app.models.group import Group
 from backend.app.models.permission import Permission
+from backend.app.services.access_state import lock_group, reset_group_policy
+from backend.app.services.audit_service import record_event
 
 
 PERMISSIONS = [
@@ -83,62 +87,68 @@ PERMISSIONS = [
         "action": "manage",
         "description": "Allows creating, updating and deactivating permissions.",
     },
+    {
+        "name": "View Audit Events",
+        "code": "audit:read",
+        "resource": "audit",
+        "action": "read",
+        "description": "Allows viewing IAM audit events.",
+    },
+    {
+        "name": "Manage Access Reviews",
+        "code": "reviews:manage",
+        "resource": "reviews",
+        "action": "manage",
+        "description": "Allows opening reviews and retaining or revoking memberships.",
+    },
 ]
 
 
-def seed_permissions():
-    db = SessionLocal()
+def assign_default_permissions(db: Session, admin_group: Group):
+    created_count = 0
+    assigned_count = 0
+    reactivated_ids = []
+    for definition in PERMISSIONS:
+        permission = db.scalar(select(Permission).where(Permission.code == definition["code"]))
+        if permission is None:
+            permission = Permission(**definition)
+            db.add(permission)
+            db.flush()
+            created_count += 1
+        elif not permission.is_active:
+            permission.is_active = True
+            reactivated_ids.append(permission.id)
 
-    try:
-        admin_group = db.scalar(
-            select(Group).where(Group.name == "IT Administrators")
+        if permission not in admin_group.permissions:
+            admin_group.permissions.append(permission)
+            assigned_count += 1
+
+    group_ids = {admin_group.id} if assigned_count else set()
+    if reactivated_ids:
+        group_ids.update(db.scalars(
+            select(group_permissions.c.group_id).where(group_permissions.c.permission_id.in_(reactivated_ids))
+        ).all())
+    if group_ids:
+        db.flush()
+        for group_id in sorted(group_ids):
+            lock_group(db, group_id)
+            reset_group_policy(db, group_id, None)
+
+    return created_count, assigned_count
+
+
+def seed_permissions():
+    with SessionLocal.begin() as db:
+        admin_group = db.scalar(select(Group).where(Group.name == "IT Administrators"))
+        if admin_group is None:
+            raise RuntimeError("IT Administrators group was not found. No permissions were changed.")
+        created, assigned = assign_default_permissions(db, admin_group)
+        record_event(
+            db, None, "system.permissions.seeded", "groups", admin_group.id,
+            created=created, assigned=assigned,
         )
 
-        if admin_group is None:
-            raise RuntimeError(
-                "IT Administrators group was not found. "
-                "No permissions were changed."
-            )
-
-        created_count = 0
-        assigned_count = 0
-
-        for permission_data in PERMISSIONS:
-            permission = db.scalar(
-                select(Permission).where(
-                    Permission.code == permission_data["code"]
-                )
-            )
-
-            if permission is None:
-                permission = Permission(**permission_data)
-                db.add(permission)
-                db.flush()
-                created_count += 1
-                print(f"Created permission: {permission.code}")
-            else:
-                if not permission.is_active:
-                    permission.is_active = True
-                    print(f"Reactivated permission: {permission.code}")
-
-            if permission not in admin_group.permissions:
-                admin_group.permissions.append(permission)
-                assigned_count += 1
-                print(f"Assigned to IT Administrators: {permission.code}")
-
-        db.commit()
-
-        print("\nPermission seeding completed.")
-        print(f"Created: {created_count}")
-        print(f"New assignments: {assigned_count}")
-        print(f"Total permissions configured: {len(PERMISSIONS)}")
-
-    except Exception:
-        db.rollback()
-        raise
-
-    finally:
-        db.close()
+    print(f"Permission seeding completed. Created: {created}. New assignments: {assigned}.")
 
 
 if __name__ == "__main__":

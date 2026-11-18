@@ -3,7 +3,8 @@ from getpass import getpass
 
 from backend.app.core.database import SessionLocal
 from backend.app.core.security import hash_password
-from backend.app.models.employee import Employee
+from backend.app.services.access_state import lock_employee
+from backend.app.services.audit_service import record_event
 
 
 def main():
@@ -34,13 +35,18 @@ def main():
     db = SessionLocal()
 
     try:
-        employee = db.get(Employee, employee_id)
+        employee = lock_employee(db, employee_id)
 
         if employee is None:
             print("Employee not found.")
             return
 
+        if employee.status != "active":
+            print("Employee account is inactive.")
+            return
+
         employee.password_hash = hash_password(password)
+        record_event(db, None, "system.password.configured", "employees", employee_id)
 
         db.commit()
 

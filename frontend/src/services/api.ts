@@ -30,7 +30,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   options: RequestInit = {},
   token?: string,
@@ -57,10 +57,13 @@ async function request<T>(
 
     try {
       const data = await response.json();
-      message =
-        data.detail ||
-        data.message ||
-        message;
+      if (Array.isArray(data.detail)) {
+        message = data.detail.map((issue: { loc: string[]; msg: string }) =>
+          `${issue.loc.slice(1).join(".")}: ${issue.msg}`,
+        ).join("; ");
+      } else {
+        message = data.detail || data.message || message;
+      }
     } catch {
       // Keep the default error message.
     }

@@ -1,0 +1,23 @@
+import { CatalogPage } from "./CatalogPage";
+import { LifecyclePage } from "./LifecyclePage";
+import { AuditPage, RequestsPage, ReviewsPage } from "./WorkflowPages";
+import { Page, QueryState } from "./common";
+import { useQuery } from "./data";
+
+const lifecyclePermissions = ["employees:create", "employees:update", "employees:deactivate"];
+
+export function IamPage({ page, token, employeeId }: { page: string; token: string; employeeId: number }) {
+  const result = useQuery<string[]>(token, "/auth/me/permissions");
+  return <QueryState result={result}>{(permissions) => {
+    const session = { token, employeeId, permissions };
+    if (page === "Access Requests") return <RequestsPage session={session} />;
+    if (page === "Access Groups" && permissions.includes("groups:read")) return <CatalogPage catalog="groups" session={session} />;
+    if (page === "Permissions" && permissions.includes("permissions:read")) return <CatalogPage catalog="permissions" session={session} />;
+    if (page === "Departments" && permissions.includes("departments:read")) return <CatalogPage catalog="departments" session={session} />;
+    if (page === "Audit Logs" && permissions.includes("audit:read")) return <AuditPage session={session} />;
+    if (page === "Access Reviews" && permissions.includes("reviews:manage")) return <ReviewsPage session={session} />;
+    if (page === "Identity Lifecycle" && permissions.includes("access:manage") &&
+      lifecyclePermissions.some((permission) => permissions.includes(permission))) return <LifecyclePage session={session} />;
+    return <Page title={page}><p role="alert">Your account does not have permission to open this module.</p></Page>;
+  }}</QueryState>;
+}

@@ -27,6 +27,7 @@ import {
 import "./App.css";
 import LoginPage from "./LoginPage";
 import EmployeesPage from "./EmployeesPage";
+import { IamPage } from "./iam/IamPage";
 import { getCurrentEmployee, type Employee } from "./services/api";
 
 const navigation = [
@@ -36,6 +37,8 @@ const navigation = [
   { label: "Access Groups", icon: UsersRound, section: "ACCESS MANAGEMENT" },
   { label: "Permissions", icon: ShieldCheck, section: "ACCESS MANAGEMENT" },
   { label: "Access Requests", icon: LockKeyhole, section: "ACCESS MANAGEMENT" },
+  { label: "Identity Lifecycle", icon: UserPlus, section: "GOVERNANCE" },
+  { label: "Access Reviews", icon: CheckCircle2, section: "GOVERNANCE" },
   { label: "Audit Logs", icon: Activity, section: "GOVERNANCE" },
 ];
 
@@ -248,13 +251,13 @@ function App() {
                       <button
                         className={`nav-item ${activePage === item.label ? "active" : ""}`}
                         key={item.label}
+                        aria-label={item.label}
+                        aria-current={activePage === item.label ? "page" : undefined}
+                        title={item.label}
                         onClick={() => setActivePage(item.label)}
                       >
                         <Icon size={18} strokeWidth={1.8} />
                         <span>{item.label}</span>
-                        {item.label === "Access Requests" && (
-                          <span className="nav-count">8</span>
-                        )}
                       </button>
                     );
                   })}
@@ -529,13 +532,15 @@ function App() {
 
               <footer className="page-footer">
                 <span>
-                  IdentityOps Platform <span className="footer-version">v0.6.0</span>
+                  IdentityOps Platform <span className="footer-version">v0.7.0</span>
                 </span>
                 <span>Identity management made simple.</span>
               </footer>
             </>
           ) : isEmployees && token ? (
             <EmployeesPage token={token} />
+          ) : token && navigation.some((item) => item.label === activePage) ? (
+            <IamPage key={activePage} page={activePage} token={token} employeeId={currentEmployee.id} />
           ) : (
             <section className="module-placeholder">
               <div className="module-placeholder-icon">

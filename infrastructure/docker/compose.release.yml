@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-identityops}
+      POSTGRES_USER: ${POSTGRES_USER:-identityops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - identityops_release_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: identityops-api:${IDENTITYOPS_VERSION:-0.7.0}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/backend.Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-identityops}
+      POSTGRES_USER: ${POSTGRES_USER:-identityops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, urllib.request as r; assert json.load(r.urlopen('http://127.0.0.1:8000/health/database', timeout=2))['database'] == 'connected'"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  web:
+    image: identityops-web:${IDENTITYOPS_VERSION:-0.7.0}
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/frontend.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${IDENTITYOPS_HTTP_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  identityops_release_data:

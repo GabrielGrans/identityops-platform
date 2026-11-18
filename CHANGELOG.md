@@ -1,8 +1,24 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
+
+## [0.7.0] - 2026-11-18
+
+### Added
+
+- Self-service group access requests, an approval queue, and a business justification for decisions.
+- Membership reviews with retain and revoke decisions and an audit trail.
+- Joiner, Mover and Leaver operations for the local employee directory and RBAC memberships.
+- React screens for groups, permissions, departments, assignments, governance and audit.
+- Administrator bootstrap, PostgreSQL integration and concurrency tests, and Docker release packaging in GitHub Actions.
+
+### Upgrade
+
+- Start the updated API to create the additive governance tables. Then rerun the permission seed on existing installations to provision `audit:read` and `reviews:manage`.
+- Access managers must explicitly open groups to requests. A change to effective group permissions or active status clears requestability and supersedes pending workflows.
+
 
 ## [0.6.1] - 2026-11-13
 

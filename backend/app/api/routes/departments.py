@@ -21,16 +21,17 @@ router = APIRouter(
     "",
     response_model=DepartmentResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission("departments:manage"))],
 )
 def create_department(
     data: DepartmentCreate,
     db: Session = Depends(get_db),
+    actor=Depends(require_permission("departments:manage")),
 ):
     try:
         return department_service.create_department(
             db,
             data.model_dump(),
+            actor_id=actor.id,
         )
     except ValueError as error:
         raise HTTPException(
@@ -76,12 +77,12 @@ def get_department(
 @router.put(
     "/{department_id}",
     response_model=DepartmentResponse,
-    dependencies=[Depends(require_permission("departments:manage"))],
 )
 def update_department(
     department_id: int,
     data: DepartmentUpdate,
     db: Session = Depends(get_db),
+    actor=Depends(require_permission("departments:manage")),
 ):
     department = department_service.get_department(
         db,
@@ -99,6 +100,7 @@ def update_department(
             db,
             department,
             data.model_dump(),
+            actor_id=actor.id,
         )
     except ValueError as error:
         raise HTTPException(
@@ -110,11 +112,11 @@ def update_department(
 @router.delete(
     "/{department_id}",
     response_model=DepartmentResponse,
-    dependencies=[Depends(require_permission("departments:manage"))],
 )
 def deactivate_department(
     department_id: int,
     db: Session = Depends(get_db),
+    actor=Depends(require_permission("departments:manage")),
 ):
     department = department_service.get_department(
         db,
@@ -130,4 +132,5 @@ def deactivate_department(
     return department_service.deactivate_department(
         db,
         department,
+        actor_id=actor.id,
     )

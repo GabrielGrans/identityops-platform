@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 
 os.environ.setdefault(
     "SECRET_KEY",
@@ -9,7 +10,7 @@ import pytest
 
 from fastapi.testclient import TestClient
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -28,17 +29,36 @@ from backend.app.models import (
 )
 
 
-test_engine = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+postgres_test_url = os.environ.get("IDENTITYOPS_TEST_DATABASE_URL")
+test_schema = f"identityops_test_{uuid4().hex}"
+if postgres_test_url:
+    test_engine = create_engine(postgres_test_url, connect_args={"options": f"-c search_path={test_schema}"})
+else:
+    test_engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
 
 TestingSessionLocal = sessionmaker(
     bind=test_engine,
     autocommit=False,
     autoflush=False,
 )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def test_database_schema():
+    if postgres_test_url:
+        with test_engine.begin() as connection:
+            connection.execute(text(f"CREATE SCHEMA {test_schema}"))
+    try:
+        yield
+    finally:
+        if postgres_test_url:
+            with test_engine.begin() as connection:
+                connection.execute(text(f"DROP SCHEMA {test_schema} CASCADE"))
+        test_engine.dispose()
 
 
 @pytest.fixture

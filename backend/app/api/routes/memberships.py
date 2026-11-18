@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.authorization import require_permission
 from backend.app.core.database import get_db
+from backend.app.models.employee import Employee
 from backend.app.schemas.group import GroupResponse
 from backend.app.services import group_service
 
@@ -29,6 +30,7 @@ def assign_employee_to_group(
             db,
             employee_id,
             group_id,
+            actor_id=current_employee.id,
         )
 
         return next(
@@ -58,6 +60,7 @@ def remove_employee_from_group(
             db,
             employee_id,
             group_id,
+            actor_id=current_employee.id,
         )
 
         return {
@@ -71,3 +74,15 @@ def remove_employee_from_group(
 
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
+
+
+@router.get("/{employee_id}/groups", response_model=list[GroupResponse])
+def list_memberships(
+    employee_id: int,
+    db: Session = Depends(get_db),
+    actor=Depends(require_permission("access:manage")),
+):
+    employee = db.get(Employee, employee_id)
+    if employee is None:
+        raise HTTPException(404, "Employee not found")
+    return sorted(employee.groups, key=lambda group: group.name)
