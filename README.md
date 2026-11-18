@@ -1,7 +1,9 @@
-﻿[# IdentityOps Platform
+# IdentityOps Platform
 ### Enterprise Identity & Access Management Platform
 
 **English | Português**
+
+[Published releases / Versões publicadas](https://github.com/GabrielGrans/identityops-platform/releases) · [Installation and upgrades / Instalação e atualização](docs/RELEASE.md) · [Guia de operação IAM](docs/IAM.md) · [Microsoft Entra ID](docs/ENTRA_ID.md)
 
 ---
 
@@ -37,7 +39,9 @@ Its architecture is designed to support identity governance processes, including
 - **Employee Management Interface:** Frontend integration with the employee API.
 - **IAM Navigation:** Structured navigation for identity, access, and governance modules.
 
-Some frontend modules are currently represented by placeholder pages and are under development.
+The workspace includes group, permission and department administration, membership assignments,
+access requests, approval queues, lifecycle events, access reviews and audit search.
+See the [IAM operator guide](docs/IAM.md).
 
 ### Infrastructure & Quality
 - **PostgreSQL:** Relational database integration.
@@ -111,7 +115,7 @@ IdentityOps Platform
 ### Prerequisites
 
 - Python 3.12 or compatible version
-- Node.js and npm
+- Node.js 24 and npm
 - Docker Desktop
 - Git
 
@@ -157,19 +161,34 @@ pip install -r backend/requirements.txt
 docker compose up -d
 ```
 
-### 6. Start the backend API
+### 6. Apply database migrations and start the backend API
+
+Run `python -m backend.app.scripts.migrate --bootstrap` for a new database.
+Use `python -m backend.app.scripts.migrate` for an existing v0.7.0 database.
 
 ```powershell
 python -m uvicorn backend.app.main:app --reload
 ```
 
-### 7. Start the frontend
+### 7. Configure the administrator
+
+With the API running, open another terminal and run this on a fresh database:
+
+```powershell
+python -m backend.app.scripts.bootstrap_admin admin@example.com
+```
+
+For an existing installation with an active `IT Administrators` group, run
+`python -m backend.app.scripts.seed_permissions` to provision the new permissions.
+Sign in with the administrator email and the password configured at the prompt.
+
+### 8. Start the frontend
 
 Open another terminal:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -194,7 +213,10 @@ From the project root, with the virtual environment activated:
 python -m pytest backend/tests -v
 ```
 
-The current test suite includes **96 passing backend tests**, covering application behavior, authorization, and security controls.
+Run `npm run lint` and `npm run build` in `frontend`. The default API tests use SQLite.
+Set `IDENTITYOPS_TEST_DATABASE_URL` to a PostgreSQL test database to include concurrency tests.
+GitHub Actions runs the PostgreSQL suite and frontend checks. The manual workflow packages
+Docker images for controlled deployment. See the [release guide](docs/RELEASE.md).
 
 ## Roadmap
 
@@ -211,22 +233,21 @@ The current test suite includes **96 passing backend tests**, covering applicati
 - [x] React + TypeScript frontend foundation
 - [x] Initial IAM administrative dashboard
 - [x] Employee management interface
-- [ ] Complete frontend integration for all IAM modules
-- [ ] Access request and approval workflows
-- [ ] Joiner, Mover, and Leaver automation
-- [ ] Audit logs and access reviews
-- [ ] Microsoft Entra ID / Microsoft Graph integration
-- [ ] CI/CD pipeline
+- [x] Complete frontend integration for all IAM modules
+- [x] Access request and approval workflows
+- [x] Joiner, Mover, and Leaver automation
+- [x] Audit logs and access reviews
+- [x] Read-only Microsoft Entra ID / Microsoft Graph integration
+- [x] CI/CD pipeline
 
 ## Project Status
 
-**Current version: v0.6.1**
+**Project version: v0.8.0**
 
 IdentityOps is an active development project.
 
-The platform currently includes a functional backend foundation, JWT authentication, granular RBAC authorization, employee and access administration, a React frontend foundation, and an automated backend test suite.
-
-The next development stages focus on access request workflows, approval processes, auditability, and Microsoft Entra ID integration.
+This version adds operational identity governance on the existing FastAPI, PostgreSQL and React stack.
+Microsoft Entra ID can import a read-only snapshot of users, groups and direct user memberships. The module includes manual local mappings, audit events and refresh history. See the [integration guide](docs/ENTRA_ID.md).
 
 ---
 
@@ -262,7 +283,9 @@ Sua arquitetura foi projetada para suportar processos de governança de identida
 - **Gerenciamento de Colaboradores:** Interface integrada à API de colaboradores.
 - **Navegação IAM:** Estrutura de navegação para módulos de identidade, acesso e governança.
 
-Alguns módulos do frontend ainda estão representados por páginas demonstrativas e permanecem em desenvolvimento.
+O workspace inclui administração de grupos, permissões e departamentos, atribuição de grupos,
+solicitações e aprovações, ciclo de vida, revisões de acesso e consulta à auditoria.
+Consulte o [guia de operação de IAM](docs/IAM.md).
 
 ### Infraestrutura e Qualidade
 - **PostgreSQL:** Integração com banco de dados relacional.
@@ -336,7 +359,7 @@ IdentityOps Platform
 ### Pré-requisitos
 
 - Python 3.12 ou versão compatível
-- Node.js e npm
+- Node.js 24 e npm
 - Docker Desktop
 - Git
 
@@ -382,19 +405,34 @@ pip install -r backend/requirements.txt
 docker compose up -d
 ```
 
-### 6. Iniciar a API
+### 6. Aplicar as migrações e iniciar a API
+
+Em um banco novo, execute `python -m backend.app.scripts.migrate --bootstrap`.
+Em um banco v0.7.0 existente, execute `python -m backend.app.scripts.migrate`.
 
 ```powershell
 python -m uvicorn backend.app.main:app --reload
 ```
 
-### 7. Iniciar o frontend
+### 7. Configurar o administrador
+
+Com a API em execução e um banco novo, abra outro terminal e execute:
+
+```powershell
+python -m backend.app.scripts.bootstrap_admin admin@example.com
+```
+
+Em uma instalação existente com o grupo `IT Administrators` ativo, execute
+`python -m backend.app.scripts.seed_permissions` para provisionar as novas permissões.
+Entre com o e-mail do administrador e a senha cadastrada no terminal.
+
+### 8. Iniciar o frontend
 
 Abra outro terminal:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -419,7 +457,10 @@ Na raiz do projeto, com o ambiente virtual ativado:
 python -m pytest backend/tests -v
 ```
 
-A suíte atual possui **96 testes backend passando**, cobrindo o comportamento da aplicação, autorização e controles de segurança.
+Execute `npm run lint` e `npm run build` em `frontend`. Os testes da API usam SQLite por padrão.
+Configure `IDENTITYOPS_TEST_DATABASE_URL` com um banco PostgreSQL de testes para incluir a validação
+de concorrência. O GitHub Actions executa a suíte PostgreSQL e as verificações do frontend.
+O fluxo manual gera imagens Docker para implantação controlada. Consulte o [guia da versão](docs/RELEASE.md).
 
 ## Roadmap
 
@@ -436,22 +477,21 @@ A suíte atual possui **96 testes backend passando**, cobrindo o comportamento d
 - [x] Estrutura inicial do frontend com React + TypeScript
 - [x] Dashboard administrativo inicial
 - [x] Interface de gerenciamento de colaboradores
-- [ ] Integração completa do frontend com todos os módulos IAM
-- [ ] Fluxos de solicitação e aprovação de acessos
-- [ ] Automação do ciclo Joiner, Mover e Leaver
-- [ ] Logs de auditoria e revisões de acesso
-- [ ] Integração com Microsoft Entra ID / Microsoft Graph
-- [ ] Pipeline CI/CD
+- [x] Integração completa do frontend com todos os módulos IAM
+- [x] Fluxos de solicitação e aprovação de acessos
+- [x] Automação do ciclo Joiner, Mover e Leaver
+- [x] Logs de auditoria e revisões de acesso
+- [x] Integração de leitura com Microsoft Entra ID / Microsoft Graph
+- [x] Pipeline CI/CD
 
 ## Status do Projeto
 
-**Versão atual: v0.6.1**
+**Versão do projeto: v0.8.0**
 
 O IdentityOps está em desenvolvimento ativo.
 
-A plataforma já possui uma estrutura funcional de backend, autenticação JWT, autorização RBAC granular, administração de colaboradores e acessos, estrutura inicial de frontend em React e uma suíte automatizada de testes backend.
-
-As próximas etapas de desenvolvimento estão concentradas nos fluxos de solicitação e aprovação de acessos, auditoria e integração com Microsoft Entra ID.
+Esta versão adiciona governança de identidades à arquitetura existente de FastAPI, PostgreSQL e React.
+A integração de leitura com Microsoft Entra ID importa usuários, grupos e membros diretos, com vínculos manuais, auditoria e histórico. Consulte o [guia de integração](docs/ENTRA_ID.md).
 
 ---
 
@@ -459,4 +499,4 @@ As próximas etapas de desenvolvimento estão concentradas nos fluxos de solicit
 
 GitHub: https://github.com/GabrielGrans
 
-Project: https://github.com/GabrielGrans/identityops-platform]
+Project: https://github.com/GabrielGrans/identityops-platform

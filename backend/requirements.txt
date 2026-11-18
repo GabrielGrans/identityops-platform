@@ -8,3 +8,5 @@ pwdlib[argon2]
 PyJWT
 pytest
 httpx
+
+alembic>=1.14,<2

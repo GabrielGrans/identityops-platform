@@ -17,6 +17,7 @@ from backend.app.schemas.auth import (
     TokenResponse,
 )
 from backend.app.schemas.employee import EmployeeResponse
+from backend.app.services.audit_service import record_event
 
 
 router = APIRouter(
@@ -100,6 +101,8 @@ def login(
         )
 
     token = create_access_token(employee.id)
+    record_event(db, employee.id, "auth.login", "employees", employee.id)
+    db.commit()
 
     return {
         "access_token": token,

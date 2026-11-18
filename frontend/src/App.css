@@ -157,18 +157,6 @@
   color: #a9d2ff;
 }
 
-.nav-count {
-  min-width: 21px;
-  padding: 3px 6px;
-  margin-left: auto;
-  border-radius: 20px;
-  background: #e59b4a25;
-  color: #f1b56d;
-  text-align: center;
-  font-size: 10px;
-  font-weight: 700;
-}
-
 .sidebar-bottom {
   margin-top: auto;
 }
@@ -1437,4 +1425,89 @@
   .employees-refresh {
     align-self: flex-start;
   }
+}
+
+.iam-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.iam-page > button {
+  justify-self: start;
+}
+
+.iam-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  min-width: 0;
+}
+
+.iam-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.iam-page label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+}
+
+.iam-page input:not([type="checkbox"]),
+.iam-page select,
+.iam-page textarea {
+  max-width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #aeb8c8;
+  border-radius: 0.45rem;
+  font: inherit;
+}
+
+.iam-page button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.iam-page .iam-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iam-page .iam-groups {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  border: 1px solid #aeb8c8;
+}
+
+.iam-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.iam-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #e2e8f0;
+  overflow-wrap: anywhere;
+}
+
+.iam-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.iam-panel pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

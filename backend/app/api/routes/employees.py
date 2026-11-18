@@ -29,16 +29,17 @@ router = APIRouter(
     "",
     response_model=EmployeeResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission("employees:create"))],
 )
 def create_employee(
     data: EmployeeCreate,
     db: Session = Depends(get_db),
+    actor=Depends(require_permission("employees:create")),
 ):
     try:
         return employee_service.create_employee(
             db,
             data.model_dump(),
+            actor_id=actor.id,
         )
     except ValueError as error:
         raise HTTPException(
@@ -93,12 +94,12 @@ def get_employee(
 @router.put(
     "/{employee_id}",
     response_model=EmployeeResponse,
-    dependencies=[Depends(require_permission("employees:update"))],
 )
 def update_employee(
     employee_id: int,
     data: EmployeeUpdate,
     db: Session = Depends(get_db),
+    actor=Depends(require_permission("employees:update")),
 ):
     employee = employee_service.get_employee(
         db,
@@ -116,6 +117,7 @@ def update_employee(
             db,
             employee,
             data.model_dump(),
+            actor_id=actor.id,
         )
     except ValueError as error:
         raise HTTPException(
@@ -127,11 +129,11 @@ def update_employee(
 @router.delete(
     "/{employee_id}",
     response_model=EmployeeResponse,
-    dependencies=[Depends(require_permission("employees:deactivate"))],
 )
 def deactivate_employee(
     employee_id: int,
     db: Session = Depends(get_db),
+    actor=Depends(require_permission("employees:deactivate")),
 ):
     employee = employee_service.get_employee(
         db,
@@ -147,4 +149,5 @@ def deactivate_employee(
     return employee_service.deactivate_employee(
         db,
         employee,
+        actor_id=actor.id,
     )

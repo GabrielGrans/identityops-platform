@@ -1,9 +1,11 @@
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from backend.app.models.employee import Employee
+from backend.app.models.governance import AccessRequest, AccessReview
 from backend.app.models.group import Group
 from backend.app.models.permission import Permission
+from backend.app.services.access_state import close_pending, lock_employee, lock_group, reset_group_policy
+from backend.app.services.audit_service import commit_change
 
 
 def list_groups(db: Session):
@@ -15,7 +17,7 @@ def get_group(db: Session, group_id: int):
     return db.get(Group, group_id)
 
 
-def create_group(db: Session, data: dict):
+def create_group(db: Session, data: dict, actor_id: int | None = None):
     duplicate = db.scalar(
         select(Group).where(
             or_(
@@ -31,13 +33,13 @@ def create_group(db: Session, data: dict):
     group = Group(**data)
 
     db.add(group)
-    db.commit()
-    db.refresh(group)
+    commit_change(db, actor_id, "group.create", group)
 
     return group
 
 
-def update_group(db: Session, group: Group, data: dict):
+def update_group(db: Session, group: Group, data: dict, actor_id: int | None = None):
+    group = lock_group(db, group.id)
     duplicate = db.scalar(
         select(Group).where(
             or_(
@@ -51,20 +53,22 @@ def update_group(db: Session, group: Group, data: dict):
     if duplicate:
         raise ValueError("Group name or code already exists")
 
+    if group.is_active != data.get("is_active", group.is_active):
+        reset_group_policy(db, group.id, actor_id)
     for field, value in data.items():
         setattr(group, field, value)
 
-    db.commit()
-    db.refresh(group)
+    commit_change(db, actor_id, "group.update", group)
 
     return group
 
 
-def deactivate_group(db: Session, group: Group):
+def deactivate_group(db: Session, group: Group, actor_id: int | None = None):
+    group = lock_group(db, group.id)
+    reset_group_policy(db, group.id, actor_id)
     group.is_active = False
 
-    db.commit()
-    db.refresh(group)
+    commit_change(db, actor_id, "group.deactivate", group)
 
     return group
 
@@ -73,9 +77,10 @@ def assign_permission(
     db: Session,
     group_id: int,
     permission_id: int,
+    actor_id: int | None = None,
 ):
-    group = db.get(Group, group_id)
-    permission = db.get(Permission, permission_id)
+    permission = db.get(Permission, permission_id, with_for_update=True, populate_existing=True)
+    group = lock_group(db, group_id)
 
     if group is None:
         raise LookupError("Group not found")
@@ -91,8 +96,8 @@ def assign_permission(
 
     if permission not in group.permissions:
         group.permissions.append(permission)
-        db.commit()
-        db.refresh(group)
+        reset_group_policy(db, group_id, actor_id)
+        commit_change(db, actor_id, "group.permission.assigned", group, permission_id=permission_id)
 
     return group
 
@@ -101,13 +106,13 @@ def remove_permission(
     db: Session,
     group_id: int,
     permission_id: int,
+    actor_id: int | None = None,
 ):
-    group = db.get(Group, group_id)
+    permission = db.get(Permission, permission_id, with_for_update=True, populate_existing=True)
+    group = lock_group(db, group_id)
 
     if group is None:
         raise LookupError("Group not found")
-
-    permission = db.get(Permission, permission_id)
 
     if permission is None:
         raise LookupError("Permission not found")
@@ -117,8 +122,8 @@ def remove_permission(
 
     group.permissions.remove(permission)
 
-    db.commit()
-    db.refresh(group)
+    reset_group_policy(db, group_id, actor_id)
+    commit_change(db, actor_id, "group.permission.removed", group, permission_id=permission_id)
 
     return group
 
@@ -127,9 +132,10 @@ def assign_employee(
     db: Session,
     employee_id: int,
     group_id: int,
+    actor_id: int | None = None,
 ):
-    employee = db.get(Employee, employee_id)
-    group = db.get(Group, group_id)
+    employee = lock_employee(db, employee_id)
+    group = lock_group(db, group_id)
 
     if employee is None:
         raise LookupError("Employee not found")
@@ -145,8 +151,8 @@ def assign_employee(
 
     if group not in employee.groups:
         employee.groups.append(group)
-        db.commit()
-        db.refresh(employee)
+        close_pending(db, AccessRequest, actor_id, "Access assigned directly", employee_id=employee_id, group_id=group_id)
+        commit_change(db, actor_id, "employee.group.assigned", employee, group_id=group_id)
 
     return employee
 
@@ -155,9 +161,10 @@ def remove_employee(
     db: Session,
     employee_id: int,
     group_id: int,
+    actor_id: int | None = None,
 ):
-    employee = db.get(Employee, employee_id)
-    group = db.get(Group, group_id)
+    employee = lock_employee(db, employee_id)
+    group = lock_group(db, group_id)
 
     if employee is None:
         raise LookupError("Employee not found")
@@ -170,7 +177,7 @@ def remove_employee(
 
     employee.groups.remove(group)
 
-    db.commit()
-    db.refresh(employee)
+    close_pending(db, AccessReview, actor_id, "Membership removed", employee_id=employee_id, group_id=group_id)
+    commit_change(db, actor_id, "employee.group.removed", employee, group_id=group_id)
 
     return employee

@@ -2,6 +2,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from backend.app.models.department import Department
+from backend.app.services.audit_service import commit_change
 
 
 def list_departments(db: Session):
@@ -13,7 +14,7 @@ def get_department(db: Session, department_id: int):
     return db.get(Department, department_id)
 
 
-def create_department(db: Session, data: dict):
+def create_department(db: Session, data: dict, actor_id: int | None = None):
     duplicate = db.scalar(
         select(Department).where(
             or_(
@@ -29,8 +30,7 @@ def create_department(db: Session, data: dict):
     department = Department(**data)
 
     db.add(department)
-    db.commit()
-    db.refresh(department)
+    commit_change(db, actor_id, "department.create", department)
 
     return department
 
@@ -39,6 +39,7 @@ def update_department(
     db: Session,
     department: Department,
     data: dict,
+    actor_id: int | None = None,
 ):
     duplicate = db.scalar(
         select(Department).where(
@@ -56,16 +57,14 @@ def update_department(
     for field, value in data.items():
         setattr(department, field, value)
 
-    db.commit()
-    db.refresh(department)
+    commit_change(db, actor_id, "department.update", department)
 
     return department
 
 
-def deactivate_department(db: Session, department: Department):
+def deactivate_department(db: Session, department: Department, actor_id: int | None = None):
     department.is_active = False
 
-    db.commit()
-    db.refresh(department)
+    commit_change(db, actor_id, "department.deactivate", department)
 
     return department

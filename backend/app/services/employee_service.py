@@ -1,8 +1,11 @@
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
 from backend.app.models.department import Department
 from backend.app.models.employee import Employee
+from backend.app.models.governance import AccessRequest, AccessReview
+from backend.app.services.access_state import close_pending, lock_employee
+from backend.app.services.audit_service import commit_change
 
 
 EMPLOYEE_UPDATE_FIELDS = {
@@ -36,6 +39,12 @@ def list_employees(
 
 def get_employee(db: Session, employee_id: int):
     return db.get(Employee, employee_id)
+
+
+def lock_reporting_hierarchy(db: Session):
+    if db.get_bind().dialect.name == "postgresql":
+        # Manager chains span multiple rows and must be validated serially.
+        db.execute(text("SELECT pg_advisory_xact_lock(57223, 1)"))
 
 
 def validate_relationships(
@@ -112,7 +121,8 @@ def validate_unique_fields(
         raise ValueError("Email address already exists")
 
 
-def create_employee(db: Session, data: dict):
+def create_employee(db: Session, data: dict, actor_id: int | None = None):
+    lock_reporting_hierarchy(db)
     validate_relationships(
         db,
         data.get("department_id"),
@@ -124,8 +134,7 @@ def create_employee(db: Session, data: dict):
     employee = Employee(**data)
 
     db.add(employee)
-    db.commit()
-    db.refresh(employee)
+    commit_change(db, actor_id, "employee.create", employee)
 
     return employee
 
@@ -134,7 +143,10 @@ def update_employee(
     db: Session,
     employee: Employee,
     data: dict,
+    actor_id: int | None = None,
 ):
+    lock_reporting_hierarchy(db)
+    employee = lock_employee(db, employee.id)
     update_data = {
         field: value
         for field, value in data.items()
@@ -153,16 +165,18 @@ def update_employee(
     for field, value in update_data.items():
         setattr(employee, field, value)
 
-    db.commit()
-    db.refresh(employee)
+    commit_change(db, actor_id, "employee.update", employee)
 
     return employee
 
 
-def deactivate_employee(db: Session, employee: Employee):
+def deactivate_employee(db: Session, employee: Employee, actor_id: int | None = None):
+    lock_reporting_hierarchy(db)
+    employee = lock_employee(db, employee.id)
+    for model in (AccessRequest, AccessReview):
+        close_pending(db, model, actor_id, "Employee deactivated", employee_id=employee.id)
     employee.status = "inactive"
 
-    db.commit()
-    db.refresh(employee)
+    commit_change(db, actor_id, "employee.deactivate", employee)
 
     return employee

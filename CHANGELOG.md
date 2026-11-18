@@ -1,8 +1,38 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
+
+## [0.8.0]
+
+### Added
+
+- Read-only Microsoft Graph connector for Entra users, groups and direct user memberships.
+- Transactional snapshots, auditable synchronization history and explicit tenant-scoped mappings to local employees and groups.
+- RBAC-protected Entra console with synchronization status, search and pagination.
+- Explicit Alembic migration for the Entra integration and mocked Graph regression tests.
+
+### Upgrade
+
+- Apply `python -m backend.app.scripts.migrate` to an existing v0.7.0 database and rerun the permission seed. Fresh installs use `--bootstrap`.
+- Configure the optional integration as described in [docs/ENTRA_ID.md](docs/ENTRA_ID.md).
+
+## [0.7.0] - 2026-11-18
+
+### Added
+
+- Self-service group access requests, an approval queue, and a business justification for decisions.
+- Membership reviews with retain and revoke decisions and an audit trail.
+- Joiner, Mover and Leaver operations for the local employee directory and RBAC memberships.
+- React screens for groups, permissions, departments, assignments, governance and audit.
+- Administrator bootstrap, PostgreSQL integration and concurrency tests, and Docker release packaging in GitHub Actions.
+
+### Upgrade
+
+- Start the updated API to create the additive governance tables. Then rerun the permission seed on existing installations to provision `audit:read` and `reviews:manage`.
+- Access managers must explicitly open groups to requests. A change to effective group permissions or active status clears requestability and supersedes pending workflows.
+
 
 ## [0.6.1] - 2026-11-13
 
