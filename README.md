@@ -6,7 +6,7 @@
 
 Engineered by Gabriel Grans
 
-[![Release](https://img.shields.io/badge/Release-v1.0.1-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.0.1)
+[![Release](https://img.shields.io/badge/Release-v1.1.0-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.1.0)
 [![CI](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-FastAPI-blue)
 ![React](https://img.shields.io/badge/React-TypeScript-3178C6)
@@ -16,13 +16,13 @@ Engineered by Gabriel Grans
 
 **English | Português**
 
-### Latest Release — v1.0.1
+### Latest Release — v1.1.0
 
-**English.** Corporate branding introduces the Grans Enterprise | IdentityOps visual identity across sign-in, navigation and documentation.
+**English.** The published release introduces Microsoft Entra ID Identity Reconciliation.
 
-**Português.** A identidade visual Grans Enterprise | IdentityOps está presente no login, na navegação e na documentação.
+**Português.** A release publicada introduz a reconciliação de identidades do Microsoft Entra ID.
 
-[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.0.1) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v1.0.1/identityops-1.0.1-linux-amd64.tar) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md) · [Access Certification Guide](docs/CERTIFICATION.md) · [Dashboard Guide](docs/DASHBOARD.md)
+[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.1.0) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v1.1.0/identityops-1.1.0-linux-amd64.tar) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md) · [Access Certification Guide](docs/CERTIFICATION.md) · [Dashboard Guide](docs/DASHBOARD.md)
 
 ---
 
@@ -261,7 +261,9 @@ Docker images for controlled deployment. See the [release guide](docs/RELEASE.md
 
 ## Project Status
 
-**Upcoming version: v1.1.0**
+**Upcoming version: v1.4.0**
+
+The upcoming release consolidates the unpublished v1.2.0 Windows Desktop (Tauri v2) and v1.3.0 employee and group administration work. [Windows validation and installation](docs/RELEASE.md#windows-desktop)
 
 Authorized administrators can preview and confirm local Employee creation or explicit linking from a synchronized Entra snapshot. Synchronization never creates Employees.
 
@@ -511,7 +513,9 @@ O fluxo manual gera imagens Docker para implantação controlada. Consulte o [gu
 
 ## Status do Projeto
 
-**Próxima versão: v1.1.0**
+**Próxima versão: v1.4.0**
+
+A próxima release consolida o Desktop Windows com Tauri v2 (v1.2.0) e a administração de colaboradores e grupos (v1.3.0), desenvolvidos em branches intermediárias. [Homologação e instalação no Windows](docs/RELEASE.md#windows-desktop)
 
 Administradores autorizados podem revisar e confirmar a criação de colaboradores locais ou vincular registros existentes. A sincronização não cria colaboradores.
 

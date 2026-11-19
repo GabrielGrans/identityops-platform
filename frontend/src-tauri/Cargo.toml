@@ -1,11 +1,12 @@
 [package]
 name = "identityops"
-version = "1.2.0"
+version = "1.4.0"
 edition = "2021"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+serde_json = "1"
 tauri = { version = "2", features = [] }
 tauri-plugin-http = { version = "2.9", default-features = false }

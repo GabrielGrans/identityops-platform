@@ -4,7 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
-## [1.1.0] (Unreleased)
+## [1.4.0] (Unreleased)
+
+**English.** Consolidates the unpublished v1.2.0 and v1.3.0 development milestones into one release.
+
+- Windows Desktop with Tauri v2 and an NSIS installer, using the existing React frontend and local FastAPI service.
+- Employee and group administration with transactional onboarding, Argon2 password administration, scoped delegation, and audit events.
+
+**Português.** Consolida as versões intermediárias v1.2.0 e v1.3.0 em uma única release.
+
+- Aplicativo Windows com Tauri v2 e instalador NSIS, usando o frontend React e o serviço FastAPI local.
+- Administração de colaboradores e grupos, cadastro transacional, senhas Argon2, delegação com escopo e auditoria.
+
+## [1.1.0] - 2026-11-18
 
 - Add preview and confirmed, local-only provisioning and linking for Microsoft Entra identities.
 - Validate person eligibility, snapshot freshness and duplicate normalized emails. Apply batches atomically with audit events and inactive defaults.

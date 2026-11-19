@@ -1,4 +1,4 @@
-# IdentityOps 1.1.0
+# IdentityOps 1.4.0
 
 ## Pacote Docker
 
@@ -33,7 +33,7 @@ Execute `python -m backend.app.scripts.seed_permissions` e sincronize o Entra no
 
 ## CI e entrega
 
-O workflow `IdentityOps CI and release packaging` executa Pytest com PostgreSQL 17, ESLint e o build do Vite. A execução manual via `workflow_dispatch` também sobe a pilha Docker, verifica a página inicial e a conexão com o banco pela API e gera o artefato `identityops-1.1.0` para implantação manual. Ao informar `release_tag`, o workflow anexa o pacote ao rascunho cujo commit corresponde à execução. A publicação da release e a implantação são manuais.
+O workflow `IdentityOps CI and release packaging` executa Pytest com PostgreSQL 17, ESLint e o build do Vite. A execução manual via `workflow_dispatch` também sobe a pilha Docker, verifica a página inicial e a conexão com o banco pela API e gera o artefato `identityops-1.4.0` para implantação manual. Ao informar `release_tag`, o workflow anexa o pacote ao rascunho cujo commit corresponde à execução. A publicação da release e a implantação são manuais.
 
 Para montar a pilha a partir do repositório, configure `.env` e execute:
 
@@ -48,3 +48,25 @@ docker compose --env-file .env -f infrastructure/docker/compose.release.yml up -
 ```
 
 Configure a integração opcional conforme o [guia Microsoft Entra ID](ENTRA_ID.md).
+
+## Windows Desktop
+
+A v1.4.0 consolida o aplicativo Tauri v2 (v1.2.0) e a administração de colaboradores e grupos (v1.3.0). Para homologação, use Windows com Node.js 24, Rust stable/MSVC, Visual Studio Build Tools com C++ e Microsoft Edge WebView2.
+
+Na raiz do repositório, use o ambiente Python e o PostgreSQL configurados conforme o [README](../README.md). Em banco novo, inicialize o esquema com `migrate --bootstrap` e crie o administrador conforme o README. Em uma instalação existente, faça backup e execute a migração sem `--bootstrap`. Atualize as permissões do administrador e inicie a API.
+
+```powershell
+python -m backend.app.scripts.migrate
+python -m backend.app.scripts.seed_permissions
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+Em outro terminal, execute o aplicativo Desktop. Para gerar o instalador NSIS, encerre o modo de desenvolvimento antes de iniciar o build.
+
+```powershell
+npm --prefix frontend ci
+npm --prefix frontend run desktop:dev
+npm --prefix frontend run desktop:build
+```
+
+O instalador fica em `frontend\src-tauri\target\release\bundle\nsis\`. Ele instala o cliente Desktop, que requer a API local em `http://127.0.0.1:8000`. Na homologação, teste login, criação de colaborador com senha e grupo, permissões efetivas, edição de grupos e auditoria. O job `desktop` do GitHub Actions gera o instalador para teste como artefato de CI.
