@@ -1,5 +1,9 @@
+import { isTauri } from "@tauri-apps/api/core";
+import { fetch as fetchDesktop } from "@tauri-apps/plugin-http";
+
+const LOCAL_API_URL = "http://127.0.0.1:8000";
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  import.meta.env.VITE_API_URL || LOCAL_API_URL;
 
 export interface LoginResponse {
   access_token: string;
@@ -47,10 +51,10 @@ export async function request<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const init = { ...options, headers };
+  const response = isTauri()
+    ? await fetchDesktop(`${LOCAL_API_URL}${path}`, { ...init, maxRedirections: 0 })
+    : await fetch(`${API_URL}${path}`, init);
 
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
