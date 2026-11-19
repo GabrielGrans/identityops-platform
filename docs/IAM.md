@@ -53,3 +53,10 @@ Use `/docs` no ambiente de desenvolvimento ou `/api/docs` no pacote Docker.
 | Auditoria | `GET /audit-events` |
 
 Para revisar várias associações em um ciclo com prazo e revisores designados, use as [campanhas de certificação](CERTIFICATION.md).
+
+## Employee and group administration / Administração de colaboradores e grupos
+
+- **EN.** Employee creation can include an initial password and group memberships in a single transaction. The group and permission selectors use the existing directories. Inactive employees cannot receive new memberships. To enable password management and elevated delegation for the administrator group, run `python -m backend.app.scripts.seed_permissions`. No new database migration is required.
+- **PT.** A criação de colaboradores pode incluir senha inicial e grupos na mesma transação. Os seletores usam os catálogos existentes. Colaboradores inativos não recebem novos vínculos. Execute `python -m backend.app.scripts.seed_permissions` para habilitar a administração de senhas e delegação elevada no grupo administrador. Esta alteração não requer nova migração.
+- **EN.** Use `access:manage` for memberships, `permissions:manage` for group permission changes, and `employees:reset_password` to administer credentials. Operations that grant or restore access, and password resets, are limited to permissions already held by the operator unless they also hold `access:delegate`. Existing tokens retain their normal expiry after a password reset.
+- **PT.** Use `access:manage` para vínculos, `permissions:manage` para permissões de grupos e `employees:reset_password` para senhas. Concessões, reativações e redefinições de senha respeitam o escopo do operador, salvo quando ele também possui `access:delegate`. Tokens já emitidos mantêm a expiração original após a redefinição.

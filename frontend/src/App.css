@@ -1521,3 +1521,89 @@
 }
 .entra-reconciliation section { gap: 0.6rem; overflow-wrap: anywhere; }
 .entra-attestation { display: flex; align-items: center; gap: 0.5rem; }
+
+.directory-picker {
+  min-width: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.directory-options {
+  max-height: 16rem;
+  overflow: auto;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.directory-shell .page-content {
+  min-width: 0;
+  background: #101419;
+  color: #f0f3f6;
+}
+
+.directory-shell :is(.panel, .employees-summary) {
+  background: #191f26;
+  border-color: #343d48;
+}
+
+.directory-shell :is(.employees-heading h1, .employees-summary strong, .employees-toolbar h2, .employee-cell strong) {
+  color: #f0f3f6;
+}
+
+.directory-shell :is(.employees-heading p, .employees-summary span, .employees-toolbar p,
+  .employee-cell span, .employees-table td, .employees-table-footer, .employees-message) {
+  color: #b6c0cc;
+}
+
+.directory-shell :is(.employees-toolbar, .employees-table td, .employees-table-footer, .iam-list > li, fieldset) {
+  border-color: #343d48;
+}
+
+.directory-shell :is(.employees-table th, .employees-table tbody tr:hover, .employees-search, .employee-avatar, .employees-summary-icon) {
+  background: #242c35;
+  color: #e5e9ef;
+  border-color: #414d5b;
+}
+
+.directory-shell .iam-page :is(input:not([type="checkbox"]), select, textarea),
+.directory-shell .secondary-button {
+  background: #202730;
+  color: #f0f3f6;
+  border-color: #526071;
+}
+
+.directory-shell .primary-button {
+  background: #b72925;
+  color: #fff;
+  border-color: #b72925;
+}
+
+.directory-shell .primary-button:hover:not(:disabled) {
+  background: #a2211e;
+}
+
+.directory-shell :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid #ed574a;
+  outline-offset: 2px;
+}
+
+.directory-shell input[type="checkbox"] {
+  accent-color: #b72925;
+}
+
+.directory-shell .employee-status-active {
+  background: #1e3a32;
+  color: #a4e3c7;
+}
+
+.directory-shell .employee-status-inactive,
+.directory-shell .employees-error {
+  background: #402b21;
+  color: #ffd2ac;
+}
+
+@media (max-width: 700px) {
+  .directory-shell :is(.employees-heading, .employees-toolbar) {
+    flex-wrap: wrap;
+  }
+}

@@ -114,11 +114,12 @@ function App() {
 
   const isDashboard = activePage === "Dashboard";
   const isEmployees = activePage === "Employees";
+  const isDirectory = isEmployees || activePage === "Access Groups";
   const displayName = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
   const initials = getInitials(currentEmployee);
 
   return (
-    <div className={isDashboard ? "app-shell governance-shell" : "app-shell"}>
+    <div className={`app-shell${isDashboard || isDirectory ? " governance-shell" : ""}${isDirectory ? " directory-shell" : ""}`}>
       <aside className="sidebar">
         <Brand className="grans-sidebar" />
 
@@ -201,7 +202,7 @@ function App() {
           {isDashboard ? (
             <DashboardPage token={token} navigate={setActivePage} />
           ) : isEmployees && token ? (
-            <EmployeesPage token={token} />
+            <EmployeesPage token={token} employeeId={currentEmployee.id} />
           ) : token && navigation.some((item) => item.label === activePage) ? (
             <IamPage key={activePage} page={activePage} token={token} employeeId={currentEmployee.id} />
           ) : (

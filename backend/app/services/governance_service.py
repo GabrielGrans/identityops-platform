@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend.app.core.authorization import group_codes, require_delegation
 from backend.app.models.employee import Employee
 from backend.app.models.governance import AccessRequest, AccessReview, RequestableGroup
 from backend.app.models.group import Group
@@ -35,6 +36,7 @@ def set_requestability(db: Session, actor_id: int, group_id: int, enabled: bool)
     group = active_group(db, group_id)
     policy = db.get(RequestableGroup, group_id)
     if enabled and policy is None:
+        require_delegation(db, actor_id, group_codes([group]), "access:manage")
         db.add(RequestableGroup(group_id=group_id))
         record_event(db, actor_id, "group.requestable.enabled", "groups", group_id)
     if not enabled and policy is not None:
@@ -104,6 +106,7 @@ def decide(db: Session, model, actor_id: int, record_id: int, decision: str, not
         if decision == "approved":
             if db.get(RequestableGroup, group.id) is None or group in employee.groups:
                 raise HTTPException(409, "Group access is no longer available for this request")
+            require_delegation(db, actor_id, group_codes([group]))
             employee.groups.append(group)
         action = f"request.{decision}"
     else:
@@ -132,6 +135,7 @@ def join_employee(db: Session, actor_id: int, data: dict, group_ids: list[int]):
         employee_service.validate_relationships(db, employee.department_id, employee.manager_id)
         employee_service.validate_unique_fields(db, data)
         employee.groups = resolve_groups(db, group_ids)
+        require_delegation(db, actor_id, group_codes(employee.groups), "access:manage")
         db.add(employee)
         commit_change(db, actor_id, "lifecycle.joiner", employee, group_ids=sorted(set(group_ids)))
     except (ValueError, IntegrityError) as error:
@@ -162,6 +166,7 @@ def move_employee(
     except ValueError as error:
         raise HTTPException(409, str(error)) from error
 
+    require_delegation(db, actor_id, group_codes(group for group in groups if group.id not in previous_groups), "access:manage")
     next_groups = {group.id for group in groups}
     previous = {field: getattr(employee, field) for field in data}
     for field, value in data.items():

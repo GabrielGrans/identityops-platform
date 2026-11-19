@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { type Employee } from "../services/api";
-import { Feedback, Page, Panel, QueryState, SelectId,  } from "./common";
-import { type CatalogItem, type Session, useMutation, useQuery } from "./data";
+import { Feedback, Page, Panel, QueryState } from "./common";
+import { DirectoryPagination, SearchChecks, SearchSelect } from "./DirectoryControls";
+import { employeeLabel, PAGE_SIZE, type CatalogItem, type Session, useMutation, useQuery } from "./data";
 
 type Catalog = "groups" | "permissions" | "departments";
 const titles = { groups: "Access Groups", permissions: "Permissions", departments: "Departments" };
@@ -14,14 +15,33 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
   const allowAccess = catalog === "groups" && permissions.includes("access:manage");
   const requestable = useQuery<CatalogItem[]>(token, allowAccess ? "/access-requests/catalog" : null, mutation.revision);
   const [edit, setEdit] = useState<CatalogItem | "new" | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<number>();
+  const [selectedGroup, setSelectedGroup] = useState<{ id: number; view: "details" | "permissions" | "members" }>();
+  const [permissionIds, setPermissionIds] = useState<number[]>([]);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const canManagePermissions = catalog === "groups" && permissions.includes("permissions:manage");
+  const canListPermissions = canManagePermissions && permissions.includes("permissions:read");
+  const canManageMembers = allowAccess && permissions.includes("employees:read");
+  const permissionOptions = useQuery<CatalogItem[]>(token, canListPermissions && edit === "new" ? "/permissions" : null);
+
+  function openForm(entry: CatalogItem | "new") {
+    setPermissionIds([]);
+    setEdit(entry);
+  }
   const item = edit === "new" ? undefined : edit ?? undefined;
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const fields = Object.fromEntries(form);
-    const body = item ? { ...fields, is_active: form.has("is_active") } : fields;
+    const body = item || catalog === "groups" ? {
+      ...fields, is_active: form.has("is_active"),
+      ...(catalog === "groups" && !item && { permission_ids: permissionIds }),
+    } : fields;
+    if (catalog === "groups" && item && form.has("is_active") !== item.is_active &&
+      !window.confirm(`${item.is_active ? "Deactivate" : "Activate"} this group and save the changes?`)) return;
+    if (catalog === "groups" && permissionIds.length && !item &&
+      !window.confirm("Create this group with the selected permissions?")) return;
     const success = await mutation.mutate(
       item ? `/${catalog}/${item.id}` : `/${catalog}`,
       item ? "PUT" : "POST",
@@ -32,7 +52,7 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
 
   return <Page title={titles[catalog]}>
     <Feedback message={mutation.message} />
-    {allowEdit && <button className="primary-button" onClick={() => setEdit("new")}>Create record</button>}
+    {allowEdit && <button className="primary-button" onClick={() => openForm("new")}>{catalog === "groups" ? "New Group" : "Create record"}</button>}
     {edit && <Panel title={item ? `Edit ${item.name}` : "New record"}>
       <form key={item?.id ?? "new"} className="iam-form" onSubmit={save}>
         <label>Name<input name="name" required minLength={2} maxLength={100} defaultValue={item?.name} /></label>
@@ -42,16 +62,34 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
           <label>Action<input name="action" required minLength={2} maxLength={50} defaultValue={item?.action} /></label>
         </>}
         <label>Description<textarea name="description" defaultValue={item?.description ?? ""} /></label>
-        {item && <label className="iam-checkbox"><input name="is_active" type="checkbox" defaultChecked={item.is_active} /> Active</label>}
+        {(item || catalog === "groups") && <label className="iam-checkbox"><input name="is_active" type="checkbox" defaultChecked={item?.is_active ?? true} /> Active</label>}
+        {canListPermissions && !item && <QueryState result={permissionOptions}>{options =>
+          <SearchChecks label="Permissions" options={permissionChoices(options.filter(option => option.is_active))}
+            selected={permissionIds} onChange={setPermissionIds} />
+        }</QueryState>}
         <div className="iam-actions">
           <button className="primary-button" disabled={mutation.busy}>Save</button>
           <button className="secondary-button" type="button" onClick={() => setEdit(null)}>Cancel</button>
         </div>
       </form>
     </Panel>}
+    {selectedGroup && <GroupDetails key={`${selectedGroup.id}:${selectedGroup.view}`} session={session}
+      groupId={selectedGroup.id} view={selectedGroup.view} revision={mutation.revision}
+      onClose={() => setSelectedGroup(undefined)} onChange={mutation.refresh} />}
     <Panel title="Directory">
-      <QueryState result={result}>{(items) => items.length ? <ul className="iam-list">
-        {items.map((entry) => {
+      {catalog === "groups" && <div className="iam-form">
+        <label>Search groups<input type="search" value={search} onChange={event => {
+          setSearch(event.target.value); setPage(1);
+        }} /></label>
+      </div>}
+      <QueryState result={result}>{(items) => {
+        const filtered = catalog === "groups" ? items.filter(entry =>
+          `${entry.name} ${entry.code} ${entry.description ?? ""}`.toLowerCase().includes(search.trim().toLowerCase())) : items;
+        const total = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        const current = Math.min(page, total);
+        const rows = catalog === "groups" ? filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE) : filtered;
+        return rows.length ? <><ul className="iam-list">
+        {rows.map((entry) => {
           const enabled = requestable.data?.some((group) => group.id === entry.id);
           return <li key={entry.id}>
             <div>
@@ -59,9 +97,21 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
               {entry.description && <p>{entry.description}</p>}
             </div>
             <div className="iam-actions">
-              {allowEdit && <button className="secondary-button" onClick={() => setEdit(entry)}>Edit</button>}
+              {catalog === "groups" && <button className="secondary-button" onClick={() =>
+                setSelectedGroup({ id: entry.id, view: "details" })}>View details</button>}
+              {allowEdit && <button className="secondary-button" onClick={() => openForm(entry)}>{catalog === "groups" ? "Edit Group" : "Edit"}</button>}
+              {catalog === "groups" && allowEdit && <button className="secondary-button" disabled={mutation.busy} onClick={() => {
+                if (window.confirm(`${entry.is_active ? "Deactivate" : "Activate"} ${entry.name}?`)) void mutation.mutate(
+                  `/groups/${entry.id}`, entry.is_active ? "DELETE" : "PUT",
+                  entry.is_active ? undefined : { name: entry.name, code: entry.code, description: entry.description, is_active: true },
+                );
+              }}>{entry.is_active ? "Deactivate" : "Activate"}</button>}
+              {(allowAccess || canManagePermissions) && <button className="secondary-button" onClick={() =>
+                setSelectedGroup({ id: entry.id, view: "permissions" })}>Manage Permissions</button>}
+              {canManageMembers && <button className="secondary-button" onClick={() =>
+                setSelectedGroup({ id: entry.id, view: "members" })}>Manage Members</button>}
               {allowAccess && <>
-                <button className="secondary-button" onClick={() => setSelectedGroup(entry.id)}>Permissions</button>
+
                 {requestable.data && entry.is_active && <button className="secondary-button" disabled={mutation.busy}
                   onClick={() => void mutation.mutate(`/groups/${entry.id}/requestability`, "PUT", { enabled: !enabled })}>
                   {enabled ? "Close to requests" : "Open to requests"}
@@ -70,50 +120,116 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
             </div>
           </li>;
         })}
-      </ul> : <p>No records.</p>}</QueryState>
+      </ul>
+      {catalog === "groups" && total > 1 && <DirectoryPagination page={current} total={total} onPage={setPage} />}
+      </> : <p>No records.</p>;
+      }}</QueryState>
       {requestable.error && <p role="alert">{requestable.error}</p>}
     </Panel>
-    {allowAccess && selectedGroup !== undefined && (
-      <Assignments key={selectedGroup} session={session} groupId={selectedGroup} revision={mutation.revision}
-        onClose={() => setSelectedGroup(undefined)} onChange={mutation.refresh} />
-    )}
-    {allowAccess && <Memberships session={session} />}
+    {allowAccess && !canManageMembers && <MembershipsById session={session} />}
   </Page>;
 }
 
-function Assignments({ session, groupId, revision, onClose, onChange }: {
-  session: Session; groupId: number; revision: number; onClose: () => void; onChange: () => void;
+function permissionChoices(items: CatalogItem[]) {
+  return items.map(item => ({
+    id: item.id, name: `${item.name} · ${item.code}`,
+    searchText: `${item.resource ?? ""} ${item.action ?? ""}`,
+  }));
+}
+
+function GroupDetails({ session, groupId, view, revision, onClose, onChange }: {
+  session: Session; groupId: number; view: "details" | "permissions" | "members"; revision: number;
+  onClose: () => void; onChange: () => void;
 }) {
-  const mutation = useMutation(session.token);
-  const group = useQuery<CatalogItem>(session.token, `/groups/${groupId}`, revision);
-  const current = useQuery<CatalogItem[]>(session.token, `/groups/${groupId}/permissions`, mutation.revision);
-  const available = useQuery<CatalogItem[]>(session.token, session.permissions.includes("permissions:read") ? "/permissions" : null);
-  return <Panel title={`Permissions for ${group.data?.name ?? `group #${groupId}`}`}>
-    <button className="secondary-button" onClick={onClose}>Close</button>
-    <Feedback message={mutation.message} />
-    <QueryState result={current}>{(items) => <>
-      {items.length ? <ul className="iam-list">{items.map((item) => <li key={item.id}>
-        <span>{item.name} · {item.code}</span>
-        <button className="secondary-button" disabled={mutation.busy} onClick={() =>
-          void mutation.mutate(`/groups/${groupId}/permissions/${item.id}`, "DELETE").then((success) => { if (success) onChange(); })}>Remove</button>
-      </li>)}</ul> : <p>No assigned permissions.</p>}
-      {available.data && group.data?.is_active && <form className="iam-form" onSubmit={(event) => {
-        event.preventDefault();
-        const id = new FormData(event.currentTarget).get("permission");
-        void mutation.mutate(`/groups/${groupId}/permissions/${id}`, "POST").then((success) => { if (success) onChange(); });
-      }}>
-        <SelectId label="Permission" name="permission" items={available.data.filter((item) => item.is_active && !items.some((assigned) => assigned.id === item.id))} />
-        <button className="primary-button" disabled={mutation.busy}>Assign permission</button>
-      </form>}
-      {available.error && <p role="alert">{available.error}</p>}
+  const group = useQuery<CatalogItem>(session.token, `/groups/${groupId}`, revision, true);
+  return <Panel title={group.data?.name ?? `Group #${groupId}`}>
+    <button className="secondary-button" onClick={onClose}>Close details</button>
+    <QueryState result={group}>{entry => <>
+      <p>{entry.code} · {entry.is_active ? "Active" : "Inactive"}</p>
+      <p>{entry.description || "No description."}</p>
+      {view === "permissions" && <Assignments session={session} group={entry} onChange={onChange} />}
+      {view === "members" && <GroupMembers session={session} group={entry} />}
     </>}</QueryState>
   </Panel>;
 }
 
-function Memberships({ session }: { session: Session }) {
+function Assignments({ session, group, onChange }: {
+  session: Session; group: CatalogItem; onChange: () => void;
+}) {
+  const mutation = useMutation(session.token);
+  const canManage = session.permissions.includes("permissions:manage");
+  const path = `/groups/${group.id}/permissions`;
+  const current = useQuery<CatalogItem[]>(session.token, path, mutation.revision);
+  const available = useQuery<CatalogItem[]>(session.token, canManage &&
+    session.permissions.includes("permissions:read") ? "/permissions" : null);
+
+  async function change(id: FormDataEntryValue | number | null, method: string) {
+    if (await mutation.mutate(`${path}/${id}`, method)) onChange();
+  }
+
+  return <>
+    <h3>Assigned permissions</h3>
+    <Feedback message={mutation.message} />
+    <QueryState result={current}>{items => <>
+      {items.length ? <ul className="iam-list directory-options">{items.map(item => <li key={item.id}>
+        <span>{item.name} · {item.code}{item.is_active ? "" : " · Inactive"}</span>
+        {canManage && <button className="secondary-button" disabled={mutation.busy} onClick={() => {
+          if (window.confirm(`Remove ${item.name} from this group?`)) void change(item.id, "DELETE");
+        }}>Remove</button>}
+      </li>)}</ul> : <p>No assigned permissions.</p>}
+      {available.data && group.is_active && <form className="iam-form" onSubmit={(event) => {
+        event.preventDefault();
+        const id = new FormData(event.currentTarget).get("permission");
+        if (window.confirm("Assign this permission to the group and its members?")) void change(id, "POST");
+      }}>
+        <SearchSelect label="Permission" name="permission" options={permissionChoices(
+          available.data.filter(item => item.is_active && !items.some(assigned => assigned.id === item.id)),
+        )} />
+        <button className="primary-button" disabled={mutation.busy}>Assign permission</button>
+      </form>}
+      {available.error && <p role="alert">{available.error}</p>}
+    </>}</QueryState>
+  </>;
+}
+
+function GroupMembers({ session, group }: { session: Session; group: CatalogItem }) {
+  const mutation = useMutation(session.token);
+  const members = useQuery<Employee[]>(session.token, `/groups/${group.id}/members`, mutation.revision);
+  const employees = useQuery<Employee[]>(session.token, group.is_active ? "/employees" : null);
+  const [search, setSearch] = useState("");
+  const path = (id: number | FormDataEntryValue | null) => `/employees/${id}/groups/${group.id}`;
+
+  return <>
+    <h3>Group members</h3>
+    <Feedback message={mutation.message} />
+    <QueryState result={members}>{items => {
+      const shown = items.filter(employee => employeeLabel(employee).toLowerCase().includes(search.trim().toLowerCase()));
+      return <>
+        <div className="iam-form"><label>Search members<input type="search" value={search}
+          onChange={event => setSearch(event.target.value)} /></label></div>
+        {shown.length ? <ul className="iam-list directory-options">{shown.map(employee => <li key={employee.id}>
+          <span>{employeeLabel(employee)} · {employee.status}</span>
+          <button className="secondary-button" disabled={mutation.busy} onClick={() => {
+            if (window.confirm(`Remove ${employeeLabel(employee)} from this group?`)) void mutation.mutate(path(employee.id), "DELETE");
+          }}>Remove</button>
+        </li>)}</ul> : <p>No matching members.</p>}
+        {group.is_active && <QueryState result={employees}>{options => <form className="iam-form" onSubmit={event => {
+          event.preventDefault();
+          const id = new FormData(event.currentTarget).get("employee");
+          if (window.confirm("Add this employee to the group?")) void mutation.mutate(path(id), "POST");
+        }}>
+          <SearchSelect label="Employee" name="employee" options={options.filter(employee => employee.status === "active" &&
+            !items.some(member => member.id === employee.id)).map(employee => ({ id: employee.id, name: employeeLabel(employee) }))} />
+          <button className="primary-button" disabled={mutation.busy}>Add employee</button>
+        </form>}</QueryState>}
+      </>;
+    }}</QueryState>
+  </>;
+}
+
+function MembershipsById({ session }: { session: Session }) {
   const mutation = useMutation(session.token);
   const [employeeId, setEmployeeId] = useState("");
-  const employees = useQuery<Employee[]>(session.token, session.permissions.includes("employees:read") ? "/employees" : null);
   const groups = useQuery<CatalogItem[]>(session.token, "/groups");
   const current = useQuery<CatalogItem[]>(session.token, employeeId ? `/employees/${employeeId}/groups` : null, mutation.revision);
   return <Panel title="Employee memberships">
@@ -121,9 +237,7 @@ function Memberships({ session }: { session: Session }) {
       event.preventDefault();
       setEmployeeId(String(new FormData(event.currentTarget).get("employee")));
     }}>
-      {employees.data ? <SelectId label="Employee" name="employee" items={employees.data.map((employee) => ({
-        id: employee.id, name: `${employee.first_name} ${employee.last_name} (${employee.employee_number})`,
-      }))} /> : <label>Employee ID<input name="employee" type="number" min={1} required /></label>}
+      <label>Employee ID<input name="employee" type="number" min={1} required /></label>
       <button className="secondary-button">Load memberships</button>
     </form>
     <Feedback message={mutation.message} />
@@ -131,15 +245,17 @@ function Memberships({ session }: { session: Session }) {
       <h3>Memberships for employee #{employeeId}</h3>
       {items.length ? <ul className="iam-list">{items.map((item) => <li key={item.id}>
         <span>{item.name}</span>
-        <button className="secondary-button" disabled={mutation.busy} onClick={() =>
-          void mutation.mutate(`/employees/${employeeId}/groups/${item.id}`, "DELETE")}>Remove</button>
+        <button className="secondary-button" disabled={mutation.busy} onClick={() => {
+          if (window.confirm(`Remove ${item.name} from this employee?`))
+            void mutation.mutate(`/employees/${employeeId}/groups/${item.id}`, "DELETE");
+        }}>Remove</button>
       </li>)}</ul> : <p>No memberships.</p>}
       {groups.data && <form className="iam-form" onSubmit={(event) => {
         event.preventDefault();
         const id = new FormData(event.currentTarget).get("group");
-        void mutation.mutate(`/employees/${employeeId}/groups/${id}`, "POST");
+        if (window.confirm("Assign this group to the employee?")) void mutation.mutate(`/employees/${employeeId}/groups/${id}`, "POST");
       }}>
-        <SelectId label="Group" name="group" items={groups.data.filter((group) => group.is_active && !items.some((assigned) => assigned.id === group.id))} />
+        <SearchSelect label="Group" name="group" options={groups.data.filter((group) => group.is_active && !items.some((assigned) => assigned.id === group.id))} />
         <button className="primary-button" disabled={mutation.busy}>Assign group</button>
       </form>}
     </>}</QueryState>}

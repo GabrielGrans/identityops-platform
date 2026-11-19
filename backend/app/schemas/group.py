@@ -7,6 +7,11 @@ class GroupCreate(BaseModel):
     description: str | None = None
 
 
+class GroupAdminCreate(GroupCreate):
+    is_active: bool = True
+    permission_ids: list[int] = Field(default_factory=list, max_length=100)
+
+
 class GroupUpdate(BaseModel):
     name: str = Field(min_length=2, max_length=100)
     code: str = Field(min_length=2, max_length=50)

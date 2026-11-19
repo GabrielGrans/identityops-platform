@@ -10,6 +10,12 @@ from backend.app.services.audit_service import record_event
 
 
 PERMISSIONS = [
+    {"name": "Delegate Elevated Access", "code": "access:delegate", "resource": "access", "action": "delegate",
+     "description": "Allows delegation beyond permissions currently held, subject to operation-specific authorization."},
+
+    {"name": "Administer Employee Passwords", "code": "employees:reset_password", "resource": "employees", "action": "reset_password",
+     "description": "Set or reset local employee passwords within authorized scope."},
+
     {
         "name": "View Employees",
         "code": "employees:read",

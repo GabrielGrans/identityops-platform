@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ApiError, request } from "../services/api";
+import { ApiError, request, type Employee } from "../services/api";
 
 export interface Session {
   token: string;
@@ -76,3 +76,7 @@ export function useCursor() {
 }
 
 export const PAGE_SIZE = 25;
+
+export function employeeLabel(employee: Employee) {
+  return `${employee.first_name} ${employee.last_name} (${employee.employee_number})`;
+}
