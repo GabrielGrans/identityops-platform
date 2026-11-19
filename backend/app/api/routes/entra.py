@@ -16,8 +16,10 @@ from backend.app.models.employee import Employee
 from backend.app.models.entra import EntraGroup, EntraMembership, EntraSyncRun, EntraUser
 from backend.app.schemas.provisioning import ProvisionRequest, ReconciliationRequest, ReconciliationResult
 from backend.app.services import provisioning_service
+from backend.app.services.enterprise_governance import access_comparison, latest_snapshot, snapshot_groups
+from backend.app.models.permission import Permission
 from backend.app.services.audit_service import record_event
-from backend.app.schemas.entra import EntraStatus, ExternalGroup, ExternalUser, LinkInput, SyncRunResponse
+from backend.app.schemas.entra import EntraStatus, ExternalGroup, ExternalUser, LinkInput, SyncRunResponse, UserAccessResponse
 from backend.app.services import entra_service as service
 from backend.app.services.graph_client import DirectorySnapshot, GraphClient, GraphConfig, GraphError, MESSAGES, TokenCache
 
@@ -146,6 +148,30 @@ def users(
     statement = select(EntraUser).where(EntraUser.tenant_id == tenant_scope(config, db))
     return directory_page(db, statement, EntraUser, before_id, limit, search,
                           [EntraUser.display_name, EntraUser.principal_name, EntraUser.mail, EntraUser.object_id])
+
+
+@router.get("/users/{object_id}/access", response_model=UserAccessResponse)
+def user_access(object_id: UUID, db: DB, actor: Reader, config: Config):
+    tenant = tenant_scope(config, db)
+    user = db.scalar(select(EntraUser).where(EntraUser.tenant_id == tenant, EntraUser.object_id == str(object_id)))
+    if user is None:
+        raise HTTPException(404, "The user is not in this tenant snapshot.")
+    snapshot = latest_snapshot(db, tenant)
+    current = bool(snapshot and user.present and user.last_seen_run_id == snapshot.id)
+    groups = db.scalars(
+        snapshot_groups(tenant, snapshot.id).join(EntraMembership)
+        .where(EntraMembership.user_id == user.id).order_by(EntraGroup.display_name, EntraGroup.id)
+    ).all() if current else []
+    own = set(db.scalars(effective_permissions(actor.id).where(Permission.code == "access:manage")))
+    comparison = None
+    if current and own and provisioning_service.snapshot_is_recent(snapshot):
+        comparison = access_comparison(db, tenant, snapshot.id, user, groups)
+    return {
+        "user": ExternalUser.model_validate(user),
+        "groups": [ExternalGroup.model_validate(group) for group in groups],
+        "comparison": comparison,
+        "snapshot_id": snapshot.id if current else None,
+    }
 
 
 @router.get("/groups", response_model=list[ExternalGroup])

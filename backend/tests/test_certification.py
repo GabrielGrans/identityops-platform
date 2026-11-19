@@ -29,6 +29,7 @@ def cleanup(bind):
             connection.execute(text("DROP FUNCTION IF EXISTS identityops_supersede_certification_items()"))
         else:
             connection.execute(text("DROP TRIGGER IF EXISTS identityops_certification_membership_removed"))
+        connection.execute(text("DROP TABLE IF EXISTS enterprise_governance_policy"))
         CertificationBase.metadata.drop_all(connection)
         EntraBase.metadata.drop_all(connection)
         connection.execute(text("DROP TABLE IF EXISTS identityops_schema_version"))

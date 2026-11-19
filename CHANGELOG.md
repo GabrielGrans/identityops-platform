@@ -16,6 +16,12 @@ The format is based on Keep a Changelog.
 - Aplicativo Windows com Tauri v2 e instalador NSIS, usando o frontend React e o serviço FastAPI local.
 - Administração de colaboradores e grupos, cadastro transacional, senhas Argon2, delegação com escopo e auditoria.
 
+- Add persisted English and Brazilian Portuguese UI preferences and a shared dark IAM theme.
+- Compare direct Entra and local memberships using the latest fresh directory snapshot and explicit mappings.
+- Add configurable governance findings with auditable policy changes and dashboard counts.
+
+**Governança empresarial.** Inclui idioma persistente em inglês e português do Brasil, tema IAM unificado, comparação de vínculos do Entra e achados configuráveis com auditoria. A atualização instala a migração `enterprise_governance_140` e atualiza as permissões do grupo administrador.
+
 ## [1.1.0] - 2026-11-18
 
 - Add preview and confirmed, local-only provisioning and linking for Microsoft Entra identities.

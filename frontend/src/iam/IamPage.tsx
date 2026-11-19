@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+import { GovernancePage } from "./GovernancePage";
 import { CertificationPage } from "./CertificationPage";
 import { EntraPage } from "./EntraPage";
 import { CatalogPage } from "./CatalogPage";
@@ -12,6 +14,7 @@ export function IamPage({ page, token, employeeId }: { page: string; token: stri
   const result = useQuery<string[]>(token, "/auth/me/permissions");
   return <QueryState result={result}>{(permissions) => {
     const session = { token, employeeId, permissions };
+    if (page === "Governance findings" && permissions.includes("governance:read")) return <GovernancePage session={session} />;
     if (page === "Access Requests") return <RequestsPage session={session} />;
     if (page === "Access Groups" && permissions.includes("groups:read")) return <CatalogPage catalog="groups" session={session} />;
     if (page === "Permissions" && permissions.includes("permissions:read")) return <CatalogPage catalog="permissions" session={session} />;
@@ -23,6 +26,6 @@ export function IamPage({ page, token, employeeId }: { page: string; token: stri
     if (page === "Access Reviews" && permissions.includes("reviews:manage")) return <ReviewsPage session={session} />;
     if (page === "Identity Lifecycle" && permissions.includes("access:manage") &&
       lifecyclePermissions.some((permission) => permissions.includes(permission))) return <LifecyclePage session={session} />;
-    return <Page title={page}><p role="alert">Your account does not have permission to open this module.</p></Page>;
+    return <Page title={page}><p role="alert">{t("Your account does not have permission to open this module.")}</p></Page>;
   }}</QueryState>;
 }

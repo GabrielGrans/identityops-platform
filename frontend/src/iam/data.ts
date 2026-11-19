@@ -1,3 +1,4 @@
+import { locale, t } from "../i18n";
 import { useEffect, useState } from "react";
 import { ApiError, request, type Employee } from "../services/api";
 
@@ -48,10 +49,10 @@ export function useMutation(token: string) {
     try {
       await request(path, { method, body: body === undefined ? undefined : JSON.stringify(body) }, token);
       refresh();
-      setMessage({ text: "Changes saved.", error: false });
+      setMessage({ text: t("Changes saved."), error: false });
       return true;
     } catch (error) {
-      setMessage({ text: error instanceof Error ? error.message : "Request failed.", error: true });
+      setMessage({ text: error instanceof Error ? t(error.message) : t("Request failed."), error: true });
       return false;
     } finally {
       setBusy(false);
@@ -61,7 +62,7 @@ export function useMutation(token: string) {
 }
 
 export function displayTime(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString(locale());
 }
 
 export function useCursor() {

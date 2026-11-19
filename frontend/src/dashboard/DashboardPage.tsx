@@ -1,3 +1,4 @@
+import { locale, t } from "../i18n";
 import { useState, type ReactNode } from "react";
 import { Activity, ArrowRight, Building2, ClipboardCheck, Layers3, LockKeyhole, RefreshCw, ShieldAlert, ShieldCheck, Users, type LucideIcon } from "lucide-react";
 import { useQuery, type QueryResult } from "../iam/data";
@@ -29,17 +30,14 @@ type EventPage = {
   next_before_id: number | null;
 };
 const endpoint = "/v1/dashboard";
-const number = new Intl.NumberFormat();
-const time = new Intl.DateTimeFormat(undefined, {
-  month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC",
-});
+const number = { format: (value: number) => value.toLocaleString(locale()) };
 const inventoryCards = [
   ["employees", "Employees", Users], ["departments", "Departments", Building2],
   ["groups", "Access groups", Layers3], ["permissions", "Permissions", LockKeyhole],
 ] as const;
 
 function formatTime(value: string) {
-  return `${time.format(new Date(value))} UTC`;
+  return `${new Intl.DateTimeFormat(locale(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }).format(new Date(value))} UTC`;
 }
 
 function LoadState<T>({ result, retry, children }: {
@@ -51,11 +49,11 @@ function LoadState<T>({ result, retry, children }: {
       403: "Your role does not have access to this dashboard data.",
     };
     return <div className="gov-notice" role="alert">
-      <p>{messages[result.errorStatus ?? 0] ?? "Dashboard data is temporarily unavailable."}</p>
-      {result.errorStatus !== 403 && <button onClick={retry}>Retry</button>}
+      <p>{t(messages[result.errorStatus ?? 0] ?? "Dashboard data is temporarily unavailable.")}</p>
+      {result.errorStatus !== 403 && <button onClick={retry}>{t("Retry")}</button>}
     </div>;
   }
-  if (result.data === undefined) return <div className="gov-skeleton" role="status" aria-label="Loading dashboard data"><i /><i /><i /></div>;
+  if (result.data === undefined) return <div className="gov-skeleton" role="status" aria-label={t("Loading dashboard data")}><i /><i /><i /></div>;
   return children(result.data);
 }
 
@@ -67,65 +65,65 @@ export default function DashboardPage({ token, navigate }: { token: string; navi
 
   return <div className="gov">
     <header className="gov-header">
-      <div><h1>IAM Governance Dashboard</h1><p>Identity inventory, access oversight and recorded activity</p></div>
+      <div><h1>{t("IAM Governance Dashboard")}</h1><p>{t("Identity inventory, access oversight and recorded activity")}</p></div>
       <div className="gov-controls">
-        <label>Activity window<select value={days} onChange={(event) => setDays(event.target.value)}>
-          <option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
+        <label>{t("Activity window")}<select value={days} onChange={(event) => setDays(event.target.value)}>
+          <option value="7">{t("Last 7 days")}</option><option value="30">{t("Last 30 days")}</option><option value="90">{t("Last 90 days")}</option>
         </select></label>
-        <button onClick={refresh}><RefreshCw size={16} aria-hidden="true" />Refresh</button>
+        <button onClick={refresh}><RefreshCw size={16} aria-hidden="true" />{t("Refresh")}</button>
       </div>
     </header>
     <LoadState result={summary} retry={refresh}>{(data) => <>
-      <SectionHeading title="Current overview" context={`Snapshot at ${formatTime(data.as_of)}`} />
+      <SectionHeading title={t("Current overview")} context={t("Snapshot at {time}", { time: formatTime(data.as_of) })} />
       <div className="gov-grid">{inventoryCards.map(([key, label, Icon]) => {
         const item = data[key];
         return item && <article className="gov-panel gov-kpi" key={key}>
-          <h3><Icon size={17} aria-hidden="true" />{label}</h3>
+          <h3><Icon size={17} aria-hidden="true" />{t(label)}</h3>
           <strong>{number.format(item.active + item.inactive)}</strong>
-          <p>{number.format(item.active)} active · {number.format(item.inactive)} inactive</p>
+          <p>{number.format(item.active)}{" "}{t("active ·")}{" "}{number.format(item.inactive)}{" "}{t("inactive")}</p>
         </article>;
       })}</div>
       <div className="gov-panels">
-        {(data.pending_requests !== null || data.reviews) && <Panel title="Approval & review backlog" icon={ClipboardCheck}>
+        {(data.pending_requests !== null || data.reviews) && <Panel title={t("Approval & review backlog")} icon={ClipboardCheck}>
           <dl>
-            {data.pending_requests !== null && <Metric label="Requests awaiting approval" value={data.pending_requests} />}
-            {data.reviews && <Metric label="Pending access reviews" value={data.reviews.pending} />}
+            {data.pending_requests !== null && <Metric label={t("Requests awaiting approval")} value={data.pending_requests} />}
+            {data.reviews && <Metric label={t("Pending access reviews")} value={data.reviews.pending} />}
           </dl>
-          {(data.pending_requests ?? 0) + (data.reviews?.pending ?? 0) === 0 && <p>No pending work in the queues you can view.</p>}
+          {(data.pending_requests ?? 0) + (data.reviews?.pending ?? 0) === 0 && <p>{t("No pending work in the queues you can view.")}</p>}
           <div className="gov-controls">
             {data.pending_requests !== null && <Navigate label="Access Requests" navigate={navigate} />}
             {data.reviews && <Navigate label="Access Reviews" navigate={navigate} />}
           </div>
         </Panel>}
-        {data.certification_available === false && <Panel title="Certification progress" icon={ShieldCheck}>
-          <p>Apply the database migrations to make campaign data available.</p>
+        {data.certification_available === false && <Panel title={t("Certification progress")} icon={ShieldCheck}>
+          <p>{t("Apply the database migrations to make campaign data available.")}</p>
         </Panel>}
-        {data.certification && <Panel title="Certification progress" icon={ShieldCheck}>
+        {data.certification && <Panel title={t("Certification progress")} icon={ShieldCheck}>
           <CertificationProgress data={data.certification} />
           <Navigate label="Access Certification" navigate={navigate} />
         </Panel>}
-        {data.security && <Panel title="Security indicators" icon={ShieldAlert}>
+        {data.security && <Panel title={t("Security indicators")} icon={ShieldAlert}>
           <dl>
-            <Metric label="Privileged memberships" value={data.security.privileged_memberships} />
-            <Metric label="Inactive accounts in active groups" value={data.security.inactive_accounts_with_active_groups} warning />
+            <Metric label={t("Privileged memberships")} value={data.security.privileged_memberships} />
+            <Metric label={t("Inactive accounts in active groups")} value={data.security.inactive_accounts_with_active_groups} warning />
           </dl>
-          <p>Inactive accounts cannot sign in. Review their saved group memberships.</p>
+          <p>{t("Inactive accounts cannot sign in. Review their saved group memberships.")}</p>
         </Panel>}
       </div>
       {(data.activity || data.reviews || data.certification) && <>
-        <SectionHeading title="Recorded in selected window" context={`${formatTime(data.period_start)} – ${formatTime(data.as_of)}`} />
+        <SectionHeading title={t("Recorded in selected window")} context={`${formatTime(data.period_start)} – ${formatTime(data.as_of)}`} />
         <div className="gov-panels">
-          {(data.reviews || data.certification) && <Panel title="Retain & revoke decisions" icon={ClipboardCheck}>
+          {(data.reviews || data.certification) && <Panel title={t("Retain & revoke decisions")} icon={ClipboardCheck}>
             <dl>
               {data.reviews && <DecisionMetrics name="Access review" data={data.reviews.decisions} />}
               {data.certification && <DecisionMetrics name="Certification" data={data.certification.decisions} />}
             </dl>
           </Panel>}
           {data.activity && <>
-            <Panel title="Identity lifecycle" icon={Activity}><Lifecycle data={data.activity} /></Panel>
-            <Panel title="Recorded security events" icon={ShieldAlert}>
-              <dl><Metric label="Access revocation events" value={data.activity.revocation_events} />
-              <Metric label="Failed Entra synchronizations" value={data.activity.failed_entra_syncs} warning /></dl>
+            <Panel title={t("Identity lifecycle")} icon={Activity}><Lifecycle data={data.activity} /></Panel>
+            <Panel title={t("Recorded security events")} icon={ShieldAlert}>
+              <dl><Metric label={t("Access revocation events")} value={data.activity.revocation_events} />
+              <Metric label={t("Failed Entra synchronizations")} value={data.activity.failed_entra_syncs} warning /></dl>
             </Panel>
           </>}
         </div>
@@ -145,25 +143,25 @@ function Metric({ label, value, warning }: { label: string; value: number; warni
   return <div><dt>{label}</dt><dd className={warning && value > 0 ? "gov-warning" : undefined}>{number.format(value)}</dd></div>;
 }
 function DecisionMetrics({ name, data }: { name: string; data: Decisions }) {
-  return <><Metric label={`${name} · retained`} value={data.retained} /><Metric label={`${name} · revoked`} value={data.revoked} /></>;
+  return <><Metric label={t("{p0} · retained", { p0: t(name) })} value={data.retained} /><Metric label={t("{p0} · revoked", { p0: t(name) })} value={data.revoked} /></>;
 }
 function Navigate({ label, navigate }: { label: string; navigate: (page: string) => void }) {
-  return <button className="gov-link" onClick={() => navigate(label)}>{label}<ArrowRight size={15} aria-hidden="true" /></button>;
+  return <button className="gov-link" onClick={() => navigate(label)}>{t(label)}<ArrowRight size={15} aria-hidden="true" /></button>;
 }
 
 function CertificationProgress({ data }: { data: Certification }) {
   const decided = data.retained + data.revoked;
   const actionable = decided + data.pending;
   return <>
-    <p>{number.format(data.active_campaigns)} active campaigns</p>
+    <p>{number.format(data.active_campaigns)}{" "}{t("active campaigns")}</p>
     {actionable > 0 ? <label className="gov-progress">
-      <span>{number.format(decided)} of {number.format(actionable)} reviewable items decided</span>
+      <span>{number.format(decided)}{" "}{t("of")}{" "}{number.format(actionable)}{" "}{t("reviewable items decided")}</span>
       <progress value={decided} max={actionable} />
-    </label> : <p>No reviewable items in active campaigns.</p>}
+    </label> : <p>{t("No reviewable items in active campaigns.")}</p>}
     <dl>
-      <Metric label="Overdue active campaigns" value={data.overdue_campaigns} warning />
-      <Metric label="Overdue pending items" value={data.overdue_items} warning />
-      <Metric label="Superseded items" value={data.superseded} />
+      <Metric label={t("Overdue active campaigns")} value={data.overdue_campaigns} warning />
+      <Metric label={t("Overdue pending items")} value={data.overdue_items} warning />
+      <Metric label={t("Superseded items")} value={data.superseded} />
     </dl>
   </>;
 }
@@ -172,7 +170,7 @@ function Lifecycle({ data }: { data: Recorded }) {
   const rows = [["Joiners", data.joiners], ["Movers", data.movers], ["Leavers", data.leavers]] as const;
   const maximum = Math.max(data.joiners, data.movers, data.leavers, 1);
   return <ul className="gov-bars">{rows.map(([label, value]) => <li key={label}>
-    <span>{label}</span><div aria-hidden="true"><i style={{ width: `${value / maximum * 100}%` }} /></div>
+    <span>{t(label)}</span><div aria-hidden="true"><i style={{ width: `${value / maximum * 100}%` }} /></div>
     <strong>{number.format(value)}</strong>
   </li>)}</ul>;
 }
@@ -186,26 +184,26 @@ function RecentActivity({ token, days, navigate }: { token: string; days: string
   if (category) query.set("category", category);
   if (before !== undefined) query.set("before_id", String(before));
   const result = useQuery<EventPage>(token, `${endpoint}/activity?${query}`, retry);
-  return <Panel title="Recent audit activity" icon={Activity}>
+  return <Panel title={t("Recent audit activity")} icon={Activity}>
     <div className="gov-controls gov-event-controls">
-      <label>Event category<select value={category} onChange={(event) => { setCategory(event.target.value); setPositions([]); }}>
-        <option value="">All categories</option>
-        {Object.entries(categories).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
+      <label>{t("Event category")}<select value={category} onChange={(event) => { setCategory(event.target.value); setPositions([]); }}>
+        <option value="">{t("All categories")}</option>
+        {Object.entries(categories).map(([key, label]) => <option value={key} key={key}>{t(label)}</option>)}
       </select></label>
       <Navigate label="Audit Logs" navigate={navigate} />
     </div>
     <LoadState result={result} retry={() => setRetry((value) => value + 1)}>{(page) => <>
-      {page.items.length === 0 ? <p>No audit events match this window and category.</p> :
+      {page.items.length === 0 ? <p>{t("No audit events match this window and category.")}</p> :
         <ul className="gov-events">{page.items.map((event) => <li key={event.id}>
-          <div><strong>{event.label}</strong><span>{categories[event.category]}</span></div>
+          <div><strong>{t(event.label)}</strong><span>{t(categories[event.category])}</span></div>
           <time dateTime={event.created_at}>{formatTime(event.created_at)}</time>
         </li>)}</ul>}
       {(positions.length > 0 || page.next_before_id !== null) && <div className="gov-controls">
-        <button disabled={positions.length === 0} onClick={() => setPositions((values) => values.slice(0, -1))}>Previous page</button>
+        <button disabled={positions.length === 0} onClick={() => setPositions((values) => values.slice(0, -1))}>{t("Previous page")}</button>
         <button disabled={page.next_before_id === null} onClick={() => {
           const next = page.next_before_id;
           if (next !== null) setPositions((values) => [...values, next]);
-        }}>Next page</button>
+        }}>{t("Next page")}</button>
       </div>}
     </>}</LoadState>
   </Panel>;

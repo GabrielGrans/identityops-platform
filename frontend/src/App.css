@@ -1607,3 +1607,61 @@
     flex-wrap: wrap;
   }
 }
+
+/* Shared IAM surfaces on Web and Desktop. */
+.directory-shell .iam-page,
+.directory-shell .iam-panel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.directory-shell .iam-form > :is(label, fieldset, div) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.directory-shell .iam-form textarea {
+  display: block;
+  width: min(30rem, 100%);
+  min-height: 5rem;
+}
+
+.directory-shell .iam-form label,
+.directory-shell .directory-picker {
+  color: #e5e9ef;
+}
+
+.directory-shell .iam-actions > button,
+.directory-shell .iam-panel > button {
+  justify-self: start;
+}
+
+.directory-shell .iam-panel dl {
+  margin: 0;
+  display: grid;
+  gap: .5rem;
+}
+
+.directory-shell .iam-panel dt {
+  color: #b6c0cc;
+}
+
+.directory-shell .iam-panel dd {
+  margin-inline-start: 0;
+}
+
+.finding-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: .75rem;
+}
+
+.finding-counts > div {
+  display: grid;
+  gap: .35rem;
+  padding: .8rem;
+  border: 1px solid #343d48;
+  border-radius: .45rem;
+}
+
+.finding-counts strong { color: #f8786c; font-size: 1.35rem; }

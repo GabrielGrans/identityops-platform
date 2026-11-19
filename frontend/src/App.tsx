@@ -3,7 +3,6 @@ import {
   Activity,
   Building2,
   CheckCircle2,
-  CircleHelp,
   LayoutDashboard,
   LockKeyhole,
   LogOut,
@@ -19,6 +18,9 @@ import { Brand, BrandCredit, BrandEmblem } from "./Brand";
 import LoginPage from "./LoginPage";
 import DashboardPage from "./dashboard/DashboardPage";
 import EmployeesPage from "./EmployeesPage";
+import { t, useLanguage, useLocalizedValidation } from "./i18n";
+import { SettingsPage } from "./iam/SettingsPage";
+import { RiskIndicators } from "./iam/GovernancePage";
 import { IamPage } from "./iam/IamPage";
 import { getCurrentEmployee, type Employee } from "./services/api";
 
@@ -33,6 +35,7 @@ const navigation = [
   { label: "Identity Lifecycle", icon: UserPlus, section: "GOVERNANCE" },
   { label: "Access Reviews", icon: CheckCircle2, section: "GOVERNANCE" },
   { label: "Access Certification", icon: ShieldCheck, section: "GOVERNANCE" },
+  { label: "Governance findings", icon: ShieldCheck, section: "GOVERNANCE" },
   { label: "Audit Logs", icon: Activity, section: "GOVERNANCE" },
 ];
 
@@ -41,6 +44,8 @@ function getInitials(employee: Employee) {
 }
 
 function App() {
+  const language = useLanguage();
+  useLocalizedValidation();
   const [token, setToken] = useState<string | null>(() =>
     sessionStorage.getItem("identityops_token"),
   );
@@ -103,23 +108,22 @@ function App() {
     return (
       <div className="auth-loading">
         <BrandEmblem />
-        <p>Verifying your session...</p>
+        <p>{t("Verifying your session...")}</p>
       </div>
     );
   }
 
   if (!token || !currentEmployee) {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage key={language} onLogin={handleLogin} />;
   }
 
   const isDashboard = activePage === "Dashboard";
   const isEmployees = activePage === "Employees";
-  const isDirectory = isEmployees || activePage === "Access Groups";
   const displayName = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
   const initials = getInitials(currentEmployee);
 
   return (
-    <div className={`app-shell${isDashboard || isDirectory ? " governance-shell" : ""}${isDirectory ? " directory-shell" : ""}`}>
+    <div className="app-shell governance-shell directory-shell">
       <aside className="sidebar">
         <Brand className="grans-sidebar" />
 
@@ -127,7 +131,7 @@ function App() {
           {["OVERVIEW", "IDENTITY MANAGEMENT", "ACCESS MANAGEMENT", "GOVERNANCE"].map(
             (section) => (
               <div className="nav-section" key={section}>
-                <span className="nav-section-label">{section}</span>
+                <span className="nav-section-label">{t(section)}</span>
                 {navigation
                   .filter((item) => item.section === section)
                   .map((item) => {
@@ -137,13 +141,13 @@ function App() {
                       <button
                         className={`nav-item ${activePage === item.label ? "active" : ""}`}
                         key={item.label}
-                        aria-label={item.label}
+                        aria-label={t(item.label)}
                         aria-current={activePage === item.label ? "page" : undefined}
-                        title={item.label}
+                        title={t(item.label)}
                         onClick={() => setActivePage(item.label)}
                       >
                         <Icon size={18} strokeWidth={1.8} />
-                        <span>{item.label}</span>
+                        <span>{t(item.label)}</span>
                       </button>
                     );
                   })}
@@ -153,14 +157,9 @@ function App() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button className="nav-item" onClick={() => setActivePage("Settings")}>
+          <button className="nav-item" aria-label={t("Settings")} aria-current={activePage === "Settings" ? "page" : undefined} onClick={() => setActivePage("Settings")}>
             <Settings size={18} />
-            <span>Settings</span>
-          </button>
-
-          <button className="nav-item" onClick={() => setActivePage("Help Center")}>
-            <CircleHelp size={18} />
-            <span>Help Center</span>
+            <span>{t("Settings")}</span>
           </button>
 
           <div className="sidebar-divider" />
@@ -173,8 +172,8 @@ function App() {
             </div>
             <button
               className="icon-button logout-button"
-              aria-label="Log out"
-              title="Log out"
+              aria-label={t("Log out")}
+              title={t("Log out")}
               onClick={handleLogout}
             >
               <LogOut size={17} />
@@ -190,7 +189,7 @@ function App() {
           <div className="breadcrumb">
             <span>IdentityOps</span>
             <span className="breadcrumb-separator">/</span>
-            <strong>{activePage}</strong>
+            <strong>{t(activePage)}</strong>
           </div>
 
           <div className="topbar-actions">
@@ -200,30 +199,14 @@ function App() {
 
         <div className="page-content">
           {isDashboard ? (
-            <DashboardPage token={token} navigate={setActivePage} />
+            <div className="iam-page"><DashboardPage key={language} token={token} navigate={setActivePage} />
+              <RiskIndicators token={token} onOpen={() => setActivePage("Governance findings")} /></div>
           ) : isEmployees && token ? (
-            <EmployeesPage token={token} employeeId={currentEmployee.id} />
-          ) : token && navigation.some((item) => item.label === activePage) ? (
-            <IamPage key={activePage} page={activePage} token={token} employeeId={currentEmployee.id} />
+            <EmployeesPage key={language} token={token} employeeId={currentEmployee.id} />
+          ) : activePage === "Settings" ? (
+            <SettingsPage />
           ) : (
-            <section className="module-placeholder">
-              <div className="module-placeholder-icon">
-                <ShieldCheck size={30} />
-              </div>
-              <span className="eyebrow">IDENTITYOPS MODULE</span>
-              <h1>{activePage}</h1>
-              <p>
-                This module is part of the IdentityOps roadmap. Its interface
-                will be connected to the FastAPI backend as we implement each
-                feature.
-              </p>
-              <button
-                className="secondary-button"
-                onClick={() => setActivePage("Dashboard")}
-              >
-                Back to dashboard
-              </button>
-            </section>
+            <IamPage key={`${activePage}:${language}`} page={activePage} token={token} employeeId={currentEmployee.id} />
           )}
         </div>
       </main>

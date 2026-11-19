@@ -50,3 +50,17 @@ class EntraStatus(BaseModel):
     message: str
     last_success_at: datetime | None = None
     latest_run: SyncRunResponse | None = None
+
+
+class AccessComparison(BaseModel):
+    local_only_group_ids: list[int]
+    entra_only_group_ids: list[int]
+    unmapped_local_group_ids: list[int]
+    unmapped_entra_group_ids: list[str]
+
+
+class UserAccessResponse(BaseModel):
+    user: ExternalUser
+    groups: list[ExternalGroup]
+    comparison: AccessComparison | None
+    snapshot_id: int | None

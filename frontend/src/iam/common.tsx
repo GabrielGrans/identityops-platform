@@ -1,13 +1,14 @@
+import { t } from "../i18n";
 import { type ReactNode } from "react";
 import { type QueryResult, type useCursor, PAGE_SIZE } from "./data";
 
 export function Feedback({ message }: { message?: { text: string; error: boolean } }) {
-  return message && <p role={message.error ? "alert" : "status"}>{message.text}</p>;
+  return message && <p role={message.error ? "alert" : "status"}>{t(message.text)}</p>;
 }
 
 export function QueryState<T>({ result, children }: { result: QueryResult<T>; children: (data: T) => ReactNode }) {
-  if (result.error) return <p role="alert">{result.error}</p>;
-  if (result.data === undefined) return <p role="status">Loading…</p>;
+  if (result.error) return <p role="alert">{t(result.error)}</p>;
+  if (result.data === undefined) return <p role="status">{t("Loading…")}</p>;
   return children(result.data);
 }
 
@@ -28,7 +29,7 @@ export function SelectId({ label, name, items, required = true, defaultValue }: 
 }) {
   return <label>{label}
     <select aria-label={label} name={name} required={required} defaultValue={defaultValue ?? ""}>
-      <option value="">{required ? "Select…" : "None"}</option>
+      <option value="">{required ? t("Select…") : t("None")}</option>
       {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
     </select>
   </label>;
@@ -39,9 +40,9 @@ export function Pagination({ cursor, rows }: {
 }) {
   const last = rows.at(-1);
   return <div className="iam-actions">
-    {cursor.previous && <button className="secondary-button" onClick={cursor.previous}>Previous page</button>}
+    {cursor.previous && <button className="secondary-button" onClick={cursor.previous}>{t("Previous page")}</button>}
     {last && rows.length === PAGE_SIZE && (
-      <button className="secondary-button" onClick={() => cursor.next(last.id)}>Next page</button>
+      <button className="secondary-button" onClick={() => cursor.next(last.id)}>{t("Next page")}</button>
     )}
   </div>;
 }

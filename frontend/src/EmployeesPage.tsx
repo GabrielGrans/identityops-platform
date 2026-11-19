@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import {
   useCallback,
   useEffect,
@@ -56,13 +57,13 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
 
         if (err instanceof ApiError && err.status === 401) {
           setError(
-            "Your session may have expired. Please sign in again.",
+            t("Your session may have expired. Please sign in again."),
           );
         } else {
           setError(
             err instanceof Error
               ? err.message
-              : "Unable to load employees.",
+              : t("Unable to load employees."),
           );
         }
       } finally {
@@ -90,13 +91,13 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setError(
-          "Your session may have expired. Please sign in again.",
+          t("Your session may have expired. Please sign in again."),
         );
       } else {
         setError(
           err instanceof Error
             ? err.message
-            : "Unable to load employees.",
+            : t("Unable to load employees."),
         );
       }
     } finally {
@@ -135,7 +136,7 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
 
   async function changeStatus(employee: Employee) {
     const active = employee.status === "active";
-    if (!window.confirm(`${active ? "Deactivate" : "Activate"} ${employeeLabel(employee)}?`)) return;
+    if (!window.confirm(t("{action} {name}?", { action: t(active ? "Deactivate" : "Activate"), name: employeeLabel(employee) }))) return;
     const path = `/employees/${employee.id}`;
     if (await mutation.mutate(active ? path : `${path}/activate`, active ? "DELETE" : "POST")) await loadEmployees();
   }
@@ -146,46 +147,46 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
         <div>
           <div className="eyebrow">
             <span className="eyebrow-dot" />
-            IDENTITY MANAGEMENT
+            {t("IDENTITY MANAGEMENT")}
           </div>
 
-          <h1>Employees</h1>
+          <h1>{t("Employees")}</h1>
 
           <p>
-            Manage employee identities across your organization.
+            {t("Manage employee identities across your organization.")}
           </p>
         </div>
 
         <div className="iam-actions">
-          {has("employees:create") && <button className="primary-button" onClick={() => { setSaved(false); setAction("new"); }}>New Employee</button>}
+          {has("employees:create") && <button className="primary-button" onClick={() => { setSaved(false); setAction("new"); }}>{t("New Employee")}</button>}
           <button
           className="secondary-button employees-refresh"
           onClick={() => void loadEmployees()}
           disabled={loading}
         >
           <RefreshCw size={15} />
-          Refresh
+          {t("Refresh")}
           </button>
         </div>
       </div>
 
       <Feedback message={mutation.message} />
-      {saved && <p role="status">Employee saved.</p>}
-      {permissions.error && <p role="alert">Could not load administrative permissions.</p>}
+      {saved && <p role="status">{t("Employee saved.")}</p>}
+      {permissions.error && <p role="alert">{t("Could not load administrative permissions.")}</p>}
       {(action === "new" && has("employees:create") || action === "edit" && selected && has("employees:update")) &&
         <EmployeeForm key={action === "new" ? "new" : selectedId} employee={action === "edit" ? selected : undefined}
           employees={employees} session={session} onClose={() => setAction(undefined)}
           onSaved={() => { setSaved(true); setAction(undefined); void loadEmployees(); }} />}
       {selected && action && action !== "edit" && action !== "new" && <Panel title={employeeLabel(selected)}>
         <div className="iam-actions">
-          {has("employees:update") && <button className="secondary-button" onClick={() => { setSaved(false); setAction("edit"); }}>Edit Employee</button>}
-          {has("access:manage") && <button className="secondary-button" onClick={() => setAction("access")}>Manage Access</button>}
-          {has("employees:reset_password") && <button className="secondary-button" onClick={() => setAction("password")}>Set / Reset Password</button>}
+          {has("employees:update") && <button className="secondary-button" onClick={() => { setSaved(false); setAction("edit"); }}>{t("Edit Employee")}</button>}
+          {has("access:manage") && <button className="secondary-button" onClick={() => setAction("access")}>{t("Manage Access")}</button>}
+          {has("employees:reset_password") && <button className="secondary-button" onClick={() => setAction("password")}>{t("Set / Reset Password")}</button>}
           {has(selected.status === "active" ? "employees:deactivate" : "employees:update") &&
             <button className="secondary-button" disabled={mutation.busy} onClick={() => void changeStatus(selected)}>
-              {selected.status === "active" ? "Deactivate" : "Activate"}
+              {selected.status === "active" ? t("Deactivate") : t("Activate")}
             </button>}
-          <button className="secondary-button" onClick={() => setAction(undefined)}>Close details</button>
+          <button className="secondary-button" onClick={() => setAction(undefined)}>{t("Close details")}</button>
         </div>
         <EmployeeDetails id={selected.id} token={token} revision={mutation.revision} />
         {action === "access" && has("access:manage") && <EmployeeAccess key={selected.id} employee={selected} session={session} />}
@@ -199,7 +200,7 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
         </div>
 
         <div>
-          <span>Total employees</span>
+          <span>{t("Total employees")}</span>
           <strong>{employees.length}</strong>
         </div>
       </div>
@@ -207,9 +208,9 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
       <div className="panel employees-panel">
         <div className="employees-toolbar">
           <div>
-            <h2>Employee directory</h2>
+            <h2>{t("Employee directory")}</h2>
             <p>
-              Employee records retrieved from IdentityOps API
+              {t("Employee records retrieved from IdentityOps API")}
             </p>
           </div>
 
@@ -218,8 +219,8 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
 
             <input
               type="search"
-              aria-label="Search employees"
-              placeholder="Search employees..."
+              aria-label={t("Search employees")}
+              placeholder={t("Search employees...")}
               value={search}
               onChange={(event) => { setSearch(event.target.value); setPage(1); }}
             />
@@ -228,7 +229,7 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
 
         {loading ? (
           <div className="employees-message">
-            Loading employee records...
+            {t("Loading employee records...")}
           </div>
         ) : error ? (
           <div
@@ -239,19 +240,19 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
           </div>
         ) : filteredEmployees.length === 0 ? (
           <div className="employees-message">
-            No employees found.
+            {t("No employees found.")}
           </div>
         ) : (
           <div className="employees-table-wrap">
             <table className="employees-table">
               <thead>
                 <tr>
-                  <th>Employee</th>
-                  <th>Employee ID</th>
-                  <th>Job title</th>
-                  <th>Department ID</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th>{t("Employee")}</th>
+                  <th>{t("Employee ID")}</th>
+                  <th>{t("Job title")}</th>
+                  <th>{t("Department ID")}</th>
+                  <th>{t("Status")}</th>
+                  <th>{t("Actions")}</th>
                 </tr>
               </thead>
 
@@ -287,11 +288,11 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
                             : "employee-status-inactive"
                         }`}
                       >
-                        {employee.status}
+                        {t(employee.status)}
                       </span>
                     </td>
-                    <td><button className="secondary-button" aria-label={`View ${employeeLabel(employee)}`}
-                      onClick={() => { setSelectedId(employee.id); setAction("view"); }}>View</button></td>
+                    <td><button className="secondary-button" aria-label={t("View {p0}", { p0: String(employeeLabel(employee)) })}
+                      onClick={() => { setSelectedId(employee.id); setAction("view"); }}>{t("View")}</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -300,7 +301,7 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
         )}
 
         <div className="employees-table-footer">
-          Showing {rows.length} of {filteredEmployees.length} matching employees
+          {t("Showing")}{" "}{rows.length}{" "}{t("of")}{" "}{filteredEmployees.length}{" "}{t("matching employees")}
           {pages > 1 && <DirectoryPagination page={currentPage} total={pages} onPage={setPage} />}
         </div>
       </div>
@@ -311,9 +312,9 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
 function EmployeeDetails({ id, token, revision }: { id: number; token: string; revision: number }) {
   const result = useQuery<Employee>(token, `/employees/${id}`, revision);
   return <QueryState result={result}>{employee => <p>
-    {employee.email} · {employee.job_title} · {employee.status}
-    {employee.department_id && ` · Department #${employee.department_id}`}
-    {employee.manager_id && ` · Manager #${employee.manager_id}`}
+    {employee.email} · {employee.job_title} · {t(employee.status)}
+    {employee.department_id && t(" · Department #{p0}", { p0: String(employee.department_id) })}
+    {employee.manager_id && t(" · Manager #{p0}", { p0: String(employee.manager_id) })}
   </p>}</QueryState>;
 }
 

@@ -85,6 +85,7 @@ LABELS = {
     "system.admin.bootstrapped": "Administrator initialized",
     "system.password.configured": "Local credentials configured",
     "system.permissions.seeded": "Default permissions seeded",
+    "governance.policy.updated": "Governance policy updated",
 }
 
 

@@ -10,6 +10,10 @@ from backend.app.services.audit_service import record_event
 
 
 PERMISSIONS = [
+    {"name": "Governance manage", "code": "governance:manage", "resource": "governance",
+     "action": "manage", "description": "Enterprise governance findings and policy."},
+    {"name": "Governance read", "code": "governance:read", "resource": "governance",
+     "action": "read", "description": "Enterprise governance findings and policy."},
     {"name": "Delegate Elevated Access", "code": "access:delegate", "resource": "access", "action": "delegate",
      "description": "Allows delegation beyond permissions currently held, subject to operation-specific authorization."},
 
