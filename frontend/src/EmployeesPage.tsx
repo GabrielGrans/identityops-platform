@@ -1,7 +1,5 @@
 import { t } from "./i18n";
 import {
-  useCallback,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -18,8 +16,6 @@ import { Drawer, Feedback, QueryState } from "./iam/common";
 import { employeeLabel, PAGE_SIZE, useMutation, useQuery } from "./iam/data";
 
 import {
-  ApiError,
-  getEmployees,
   type Employee,
 } from "./services/api";
 
@@ -35,75 +31,12 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
   const [selectedId, setSelectedId] = useState<number>();
   const [saved, setSaved] = useState(false);
   const [page, setPage] = useState(1);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  // Initial API request
-  useEffect(() => {
-    let active = true;
-
-    async function fetchEmployees() {
-      try {
-        const data = await getEmployees(token);
-
-        if (active) {
-          setEmployees(data);
-          setError("");
-        }
-      } catch (err) {
-        if (!active) return;
-
-        if (err instanceof ApiError && err.status === 401) {
-          setError(
-            t("Your session may have expired. Please sign in again."),
-          );
-        } else {
-          setError(
-            err instanceof Error
-              ? err.message
-              : t("Unable to load employees."),
-          );
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void fetchEmployees();
-
-    return () => {
-      active = false;
-    };
-  }, [token]);
-
-  // Refresh employee records
-  const loadEmployees = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const data = await getEmployees(token);
-      setEmployees(data);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        setError(
-          t("Your session may have expired. Please sign in again."),
-        );
-      } else {
-        setError(
-          err instanceof Error
-            ? err.message
-            : t("Unable to load employees."),
-        );
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  const result = useQuery<Employee[]>(token, "/employees", mutation.revision);
+  const loading = result.loading;
+  const error = result.errorStatus === 401 ? t("Your session may have expired. Please sign in again.") : result.error;
+  const employees = useMemo(() => result.data ?? [], [result.data]);
+  const loadEmployees = mutation.refresh;
 
   const filteredEmployees = useMemo(() => {
     const term = search.toLowerCase().trim();
@@ -138,7 +71,7 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
     const active = employee.status === "active";
     if (!window.confirm(t("{action} {name}?", { action: t(active ? "Deactivate" : "Activate"), name: employeeLabel(employee) }))) return;
     const path = `/employees/${employee.id}`;
-    if (await mutation.mutate(active ? path : `${path}/activate`, active ? "DELETE" : "POST")) await loadEmployees();
+    await mutation.mutate(active ? path : `${path}/activate`, active ? "DELETE" : "POST");
   }
 
   return (

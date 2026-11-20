@@ -1,5 +1,5 @@
 import { locale, t } from "../i18n";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { ApiError, request, type Employee } from "../services/api";
 
 export interface Session {
@@ -18,31 +18,46 @@ export interface CatalogItem {
   action?: string;
 }
 
-export type QueryResult<T> = { data?: T; error?: string; errorStatus?: number };
-export function useQuery<T>(token: string, path: string | null, revision = 0, keepPrevious = false) {
+const listeners = new Set<() => void>();
+let localRevision = 0;
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+export function refreshLocalData() {
+  localRevision++;
+  for (const listener of listeners) listener();
+}
+
+export type QueryResult<T> = { data?: T; error?: string; errorStatus?: number; loading?: boolean };
+export function useQuery<T>(token: string, path: string | null, revision = 0, keepPrevious = true): QueryResult<T> {
   const [result, setResult] = useState<QueryResult<T> & { key?: string; path?: string; token?: string }>({});
-  const key = path === null ? undefined : `${revision}:${path}`;
+  const epoch = useSyncExternalStore(subscribe, () => localRevision);
+  const key = path === null ? undefined : `${epoch}:${revision}:${path}`;
   useEffect(() => {
     if (path === null) return;
     const controller = new AbortController();
-    request<T>(path, { signal: controller.signal }, token).then(
-      (data) => setResult({ key, path, token, data }),
+    request<T>(path, { signal: controller.signal, cache: "no-store" }, token).then(
+      (data) => { if (!controller.signal.aborted) setResult({ key, path, token, data }); },
       (error: Error) => {
         if (!controller.signal.aborted) setResult({ key, path, token, error: error.message, errorStatus: error instanceof ApiError ? error.status : undefined });
       },
     );
     return () => controller.abort();
   }, [token, path, key]);
-  return result.token === token && (result.key === key || (keepPrevious && result.path === path)) ? result : {};
+  if (path === null) return {};
+  if (result.token === token && result.key === key) return { ...result, loading: false };
+  if (keepPrevious && result.token === token && result.path === path) return { data: result.data, loading: true };
+  return { loading: true };
 }
 
 export function useMutation(token: string) {
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean }>();
-  function refresh() {
-    setRevision((value) => value + 1);
-  }
+  const refresh = useCallback(() => setRevision((value) => value + 1), []);
   async function mutate(path: string, method: string, body?: unknown) {
     setBusy(true);
     setMessage(undefined);

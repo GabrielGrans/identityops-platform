@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [1.4.1] — Unreleased
+
+- Restore manual Entra synchronization for healthy connections, show running state and add paginated synchronization history.
+- Separate local data refresh and indicator refresh from Graph synchronization. Preserve filters and selections during refresh, and refresh certification metrics after changes.
+
+- Restaura a sincronização manual do Entra em conexões saudáveis, mostra a execução e acrescenta histórico paginado.
+- Separa a atualização local e de indicadores da sincronização Graph. Preserva filtros e seleção e atualiza métricas de certificação após alterações.
+
 ## [1.4.0] — Enterprise IAM & Windows Desktop Preview
 
 ### English
