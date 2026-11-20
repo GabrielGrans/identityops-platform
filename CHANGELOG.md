@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
+## [1.5.0] — Unreleased
+
+- Add authenticated ServiceNow intake and polling with authoritative approval verification, tenant and instance isolation, idempotent RITM tracking, and an auditable simulation mode.
+- Reuse the Entra queue and existing IAM review and Graph verification. Add the ServiceNow source and approval evidence to Access Requests. Apply the `servicenow_intake_150` migration.
+
+- Adiciona recebimento e consulta autenticados, verificação de aprovação na instância ServiceNow, isolamento por tenant e instância, idempotência da RITM e simulação auditável.
+- Reaproveita a fila Entra, a revisão IAM e a verificação pelo Graph. Exibe origem e evidência em Solicitações de acesso. Aplique a migração `servicenow_intake_150`.
+
 ## [1.4.1] — Unreleased
 
 - Restore manual Entra synchronization for healthy connections, show running state and add paginated synchronization history.

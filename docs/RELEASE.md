@@ -4,6 +4,12 @@ Pré-release pública para avaliação. A homologação em produção, em estaç
 
 Public pre-release for evaluation. Production qualification, installation on Windows workstations and real-tenant validation remain outside the verified CI and simulated Graph coverage.
 
+## Avaliação das branches 1.4.1 e 1.5.0 / Testing 1.4.1 and 1.5.0
+
+Use a mesma branch para API e cliente. Faça backup e utilize um banco de laboratório. Para a 1.5.0, aplique `python -m backend.app.scripts.migrate` e consulte o [guia ServiceNow](SERVICENOW.md). Na 1.4.1, a atualização segue as migrações já presentes na v1.4.0. Consulte o job Windows da branch ou gere um instalador com `npm --prefix frontend run desktop:build`.
+
+Use the same branch for the API and client and a backed-up lab database. Apply `python -m backend.app.scripts.migrate` for 1.5.0. Build the installer locally or use the branch's Windows CI artifact. The download links below refer to the public v1.4.0 preview.
+
 ## Pacote Docker
 
 O pacote inclui imagens da API, da interface e do PostgreSQL 17 para a arquitetura indicada no nome do arquivo de entrega ou na plataforma do runner. Use Docker Engine com Compose v2.

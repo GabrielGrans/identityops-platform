@@ -16,6 +16,14 @@ Engineered by Gabriel Grans
 
 **English | Português**
 
+### ServiceNow integration under review / Integração ServiceNow em revisão
+
+The v1.5.0 development branch accepts approved ServiceNow RITMs and reuses the existing Entra provisioning queue. Simulation is the default. Consult the setup guide for the approval trust model, API contract and PDI steps.
+
+A branch de desenvolvimento v1.5.0 recebe RITMs aprovadas no ServiceNow e reaproveita a fila de provisionamento do Entra. A simulação vem habilitada por padrão. Consulte o guia para configurar o contrato, a validação da aprovação e a PDI.
+
+[ServiceNow and PDI setup / Configuração ServiceNow e PDI](docs/SERVICENOW.md) · [Demo walkthrough / Roteiro de demonstração](docs/DEMO.md)
+
 ### v1.4.0 Preview
 
 **English.** Evaluate enterprise IAM from the Web or the Windows Desktop client. The client requires a running FastAPI API and PostgreSQL. Automatic Microsoft Entra synchronization requires the server-side worker. This preview is for evaluation and has yet to be qualified for production.
