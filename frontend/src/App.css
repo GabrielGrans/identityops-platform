@@ -1702,3 +1702,15 @@
     white-space: normal;
   }
 }
+
+.directory-source { margin-bottom: 1rem; }
+.directory-source [aria-pressed="true"] { border-color: #ed574a; }
+.directory-badge {
+  display: inline-block;
+  padding: .2rem .45rem;
+  border: 1px solid #526071;
+  border-radius: .35rem;
+  color: #f0f3f6;
+  font-size: .78rem;
+}
+.directory-shell .iam-panel a { color: #ff998d; overflow-wrap: anywhere; }

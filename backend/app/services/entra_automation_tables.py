@@ -7,6 +7,7 @@ state = Table("entra_automation_state", metadata,
 changes = Table("entra_access_changes", metadata,
                 Column("id", Integer, primary_key=True), Column("tenant", String),
                 Column("employee_id", Integer), Column("requester_id", Integer), Column("reviewer_id", Integer),
+                Column("user_object_id", String), Column("group_object_id", String), Column("error_code", String),
                 Column("status", String), Column("expires_at", DateTime(timezone=True)),
                 Column("next_attempt", DateTime(timezone=True)), Column("attempts", Integer), Column("request", JSON))
 policies = Table("entra_role_policy", metadata, Column("tenant", String, primary_key=True), Column("rules", JSON))

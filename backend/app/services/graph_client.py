@@ -95,6 +95,8 @@ class UserRecord(TypedDict):
     employee_number: NotRequired[str | None]
     given_name: NotRequired[str | None]
     surname: NotRequired[str | None]
+    department: NotRequired[str | None]
+    on_premises_sync_enabled: NotRequired[bool | None]
     job_title: NotRequired[str | None]
 
 
@@ -102,6 +104,12 @@ class GroupRecord(TypedDict):
     object_id: str
     display_name: str | None
     security_enabled: bool | None
+    description: NotRequired[str | None]
+    mail_enabled: NotRequired[bool | None]
+    role_assignable: NotRequired[bool | None]
+    group_types: NotRequired[list[str] | None]
+    on_premises_sync_enabled: NotRequired[bool | None]
+    management_metadata_complete: NotRequired[bool | None]
 
 
 @dataclass
@@ -137,6 +145,16 @@ def optional_text(item: dict, name: str, limit: int) -> str | None:
     if value is not None and (not isinstance(value, str) or len(value) > limit or "\0" in value):
         raise GraphError("invalid_response")
     return value
+
+
+def group_types(item):
+    value = item.get("groupTypes")
+    if value is not None and (not isinstance(value, list) or any(not isinstance(kind, str) for kind in value)):
+        raise GraphError("invalid_response")
+    return value
+
+
+GROUP_METADATA = ("mailEnabled", "groupTypes", "onPremisesSyncEnabled", "isAssignableToRole")
 
 
 def optional_bool(item: dict, name: str) -> bool | None:
@@ -373,7 +391,7 @@ class GraphClient:
         groups: dict[str, GroupRecord] = {}
         for count, item in enumerate(self.pages(
             "/users", "id,displayName,userPrincipalName,mail,accountEnabled,userType,employeeType,"
-                      "employeeId,givenName,surname,jobTitle"
+                      "employeeId,givenName,surname,jobTitle,department,onPremisesSyncEnabled"
         ), 1):
             if count > MAX_OBJECTS:
                 raise GraphError("sync_limit")
@@ -386,16 +404,24 @@ class GraphClient:
                 "employee_number": optional_text(item, "employeeId", 64),
                 "given_name": optional_text(item, "givenName", 100),
                 "surname": optional_text(item, "surname", 100),
+                "department": optional_text(item, "department", 256),
+                "on_premises_sync_enabled": optional_bool(item, "onPremisesSyncEnabled"),
                 "job_title": optional_text(item, "jobTitle", 120),
                 "mail": optional_text(item, "mail", 320), "account_enabled": optional_bool(item, "accountEnabled"),
             }
-        for count, item in enumerate(self.pages("/groups", "id,displayName,securityEnabled"), 1):
+        for count, item in enumerate(self.pages("/groups", "id,displayName,securityEnabled,description," + ",".join(GROUP_METADATA)), 1):
             if count > MAX_OBJECTS:
                 raise GraphError("sync_limit")
             key = object_id(item)
             groups[key] = {
                 "object_id": key, "display_name": optional_text(item, "displayName", 256),
                 "security_enabled": optional_bool(item, "securityEnabled"),
+                "description": optional_text(item, "description", 4096),
+                "mail_enabled": optional_bool(item, "mailEnabled"),
+                "role_assignable": optional_bool(item, "isAssignableToRole"),
+                "group_types": group_types(item),
+                "on_premises_sync_enabled": optional_bool(item, "onPremisesSyncEnabled"),
+                "management_metadata_complete": all(field in item for field in GROUP_METADATA),
             }
         memberships, skipped = self.direct_memberships(groups, users)
         return DirectorySnapshot(users, groups, memberships, skipped)

@@ -20,10 +20,11 @@ def refresh_alerts(db, tenant):
     current = {}
     today = utcnow().date()
 
-    def finding(rule, identity, role, evidence, severity, action, employee_id=None):
+    def finding(rule, identity, role, evidence, severity, action, employee_id=None, group_ids=None):
         key = sha256(json.dumps([rule, identity, role, evidence], sort_keys=True).encode()).hexdigest()
         current[key] = dict(rule=rule, identity=identity, policy=role, evidence=evidence, severity=severity,
-                            recommended_action=action, employee_id=employee_id)
+                            recommended_action=action, employee_id=employee_id, group_ids=group_ids or [],
+                            user_object_id=identity if group_ids else None)
 
     has_snapshot = snapshot_is_recent(snapshot)
     if has_snapshot:
@@ -40,9 +41,11 @@ def refresh_alerts(db, tenant):
             employee_id = employee.id if employee else None
             groups = observed[user.id]
             if groups and (user.account_enabled is False or (employee and employee.status == "inactive")):
-                finding("inactive_access", object_id, "directory", sorted(groups), "high", "Review retained access", employee_id)
+                finding("inactive_access", object_id, "directory", sorted(groups), "high", "Review retained access", employee_id, sorted(groups))
             for role in config.get("roles", []):
                 if role["job_title"] and role["job_title"].casefold() != (user.job_title or "").casefold():
+                    continue
+                if role.get("entra_department") and role["entra_department"].casefold() != (user.department or "").casefold():
                     continue
                 if role["department_id"] is not None and (not employee or employee.department_id != role["department_id"]):
                     continue
@@ -50,6 +53,11 @@ def refresh_alerts(db, tenant):
                     continue
                 excepted = {row["group_id"] for row in role["exceptions"]
                             if row["user_id"] == object_id and date.fromisoformat(row["until"]) >= today}
+                expired_groups = sorted({row["group_id"] for row in role["exceptions"]
+                                         if row["user_id"] == object_id and date.fromisoformat(row["until"]) < today})
+                if expired_groups:
+                    finding("expired_exception", object_id, role["name"], expired_groups, "medium",
+                            "Review expired exception", employee_id, expired_groups)
                 approved = set(role["approved"]) | set(role["required"])
                 union = groups - excepted
                 recommended = "Review role access"
@@ -59,10 +67,10 @@ def refresh_alerts(db, tenant):
                     ("privileged_access", (union & privileged) - approved, "high"),
                 ]:
                     if evidence:
-                        finding(rule, object_id, role["name"], sorted(evidence), severity, recommended, employee_id)
+                        finding(rule, object_id, role["name"], sorted(evidence), severity, recommended, employee_id, sorted(evidence))
                 for pair in role["forbidden"]:
                     if set(pair) <= union:
-                        finding("segregation_of_duties", object_id, role["name"], sorted(pair), "high", recommended, employee_id)
+                        finding("segregation_of_duties", object_id, role["name"], sorted(pair), "high", recommended, employee_id, sorted(pair))
 
     for employee_id, review_id, group_id in db.execute(select(AccessReview.employee_id, AccessReview.id, AccessReview.group_id)
         .where(AccessReview.status == "pending",
@@ -71,16 +79,17 @@ def refresh_alerts(db, tenant):
                 "medium", "Complete the pending review", employee_id)
     for row in db.execute(select(changes).where(changes.c.tenant == tenant,
         changes.c.status.in_(("failed", "conflict", "expired")))).mappings():
-        finding("provisioning_failed", str(row.employee_id), "provisioning", [row.id, row.status],
-                "high", "Investigate the provisioning request", row.employee_id)
+        finding("provisioning_failed", row.request["user_id"], "provisioning", [row.id, row.status],
+                "high", "Investigate the provisioning request", row.employee_id, [row.request["group_id"]])
 
     seen = {row.key: row for row in db.execute(select(alerts).where(alerts.c.tenant == tenant)).mappings()}
     for key, payload in current.items():
         existing = seen.pop(key, None)
         if existing is None:
             db.execute(alerts.insert().values(tenant=tenant, key=key, state="unread", payload=payload))
-        elif existing.state == "resolved":
-            db.execute(alerts.update().where(alerts.c.tenant == tenant, alerts.c.key == key).values(state="unread"))
+        elif existing.payload != payload or existing.state == "resolved":
+            db.execute(alerts.update().where(alerts.c.tenant == tenant, alerts.c.key == key)
+                       .values(payload=payload, state="unread" if existing.state == "resolved" else existing.state))
     for row in seen.values():
         # A stale or unavailable Graph snapshot is not evidence of resolution.
         if row.state != "resolved" and (has_snapshot or row.payload["rule"] in {"overdue_review", "provisioning_failed"}):

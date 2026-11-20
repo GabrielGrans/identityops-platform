@@ -8,16 +8,22 @@ from backend.app.services.entra_automation_tables import state
 from backend.app.services.entra_service import synchronize, utcnow
 from backend.app.services.enterprise_governance import latest_snapshot
 from backend.app.services.graph_client import (
-    DirectorySnapshot, GraphError, MAX_OBJECTS, object_id, optional_bool, optional_text,
+    DirectorySnapshot, GraphError, GROUP_METADATA, MAX_OBJECTS, group_types, object_id, optional_bool, optional_text,
 )
 
 USER_FIELDS = {
     "displayName": ("display_name", 256), "userPrincipalName": ("principal_name", 320),
+    "department": ("department", 256), "onPremisesSyncEnabled": ("on_premises_sync_enabled", None),
     "mail": ("mail", 320), "userType": ("user_type", 32), "employeeType": ("employee_type", 120),
     "employeeId": ("employee_number", 64), "givenName": ("given_name", 100),
     "surname": ("surname", 100), "jobTitle": ("job_title", 120), "accountEnabled": ("account_enabled", None),
 }
-GROUP_FIELDS = {"displayName": ("display_name", 256), "securityEnabled": ("security_enabled", None)}
+GROUP_FIELDS = {
+    "displayName": ("display_name", 256), "securityEnabled": ("security_enabled", None),
+    "description": ("description", 4096), "mailEnabled": ("mail_enabled", None),
+    "isAssignableToRole": ("role_assignable", None), "groupTypes": ("group_types", group_types),
+    "onPremisesSyncEnabled": ("on_premises_sync_enabled", None),
+}
 
 
 def materialize(db, model, tenant, fields, patches, incremental):
@@ -25,6 +31,9 @@ def materialize(db, model, tenant, fields, patches, incremental):
     if incremental:
         for row in db.scalars(select(model).where(model.tenant_id == tenant, model.present.is_(True))):
             rows[row.object_id] = {"object_id": row.object_id, **{name: getattr(row, name) for name, _ in fields.values()}}
+    if model is EntraGroup and incremental:
+        for group in db.scalars(select(model).where(model.tenant_id == tenant, model.present.is_(True))):
+            rows[group.object_id]["management_metadata_complete"] = group.management_metadata_complete
     for patch in patches:
         key = object_id(patch)
         if "@removed" in patch:
@@ -33,7 +42,15 @@ def materialize(db, model, tenant, fields, patches, incremental):
         row = rows.setdefault(key, {"object_id": key, **{name: None for name, _ in fields.values()}})
         for source, (name, limit) in fields.items():
             if source in patch:
-                row[name] = optional_bool(patch, source) if limit is None else optional_text(patch, source, limit)
+                row[name] = (
+                    limit(patch) if callable(limit) else
+                    optional_bool(patch, source) if limit is None else optional_text(patch, source, limit)
+                )
+        if model is EntraGroup and all(field in patch for field in GROUP_METADATA):
+            row["management_metadata_complete"] = True
+    if model is EntraGroup:
+        for row in rows.values():
+            row.setdefault("management_metadata_complete", None)
     if len(rows) > MAX_OBJECTS:
         raise GraphError("sync_limit")
     return rows
@@ -47,7 +64,7 @@ def sync_due(db, tenant, interval, make_client):
     checkpoint = current.checkpoint if current else {}
     latest = latest_snapshot(db, tenant)
     use_delta = bool(latest and checkpoint.get("run_id") == latest.id and
-                     checkpoint.get("full_after", "") > now.isoformat())
+                     checkpoint.get("projection") == 2 and checkpoint.get("full_after", "") > now.isoformat())
     next_checkpoint = {}
 
     def fetch():
@@ -67,7 +84,7 @@ def sync_due(db, tenant, interval, make_client):
         groups = materialize(db, EntraGroup, tenant, GROUP_FIELDS, groups, incremental)
         security_groups = {key for key, row in groups.items() if row["security_enabled"] is True}
         edges, skipped = graph.direct_memberships(security_groups, users)
-        next_checkpoint.update(users=user_link, groups=group_link,
+        next_checkpoint.update(users=user_link, groups=group_link, projection=2,
                                full_after=checkpoint["full_after"] if incremental else (now + timedelta(days=1)).isoformat())
         return DirectorySnapshot(users, groups, edges, skipped)
 
@@ -84,6 +101,7 @@ def sync_due(db, tenant, interval, make_client):
 
     try:
         synchronize(db, tenant, None, fetch, before_commit=finish)
+        return True
     except GraphError as error:
         db.rollback()
         if error.code == "sync_running":

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from backend.app.models.employee import Employee
@@ -46,6 +46,8 @@ class EntraUser(EntraBase):
     employee_number: Mapped[str | None] = mapped_column(String(64))
     given_name: Mapped[str | None] = mapped_column(String(100))
     surname: Mapped[str | None] = mapped_column(String(100))
+    department: Mapped[str | None] = mapped_column(String(256))
+    on_premises_sync_enabled: Mapped[bool | None] = mapped_column(Boolean)
     job_title: Mapped[str | None] = mapped_column(String(120))
     account_enabled: Mapped[bool | None] = mapped_column(Boolean)
     present: Mapped[bool] = mapped_column(Boolean)
@@ -64,6 +66,12 @@ class EntraGroup(EntraBase):
     tenant_id: Mapped[str] = mapped_column(String(36))
     object_id: Mapped[str] = mapped_column(String(36))
     display_name: Mapped[str | None] = mapped_column(String(256))
+    description: Mapped[str | None] = mapped_column(Text)
+    mail_enabled: Mapped[bool | None] = mapped_column(Boolean)
+    role_assignable: Mapped[bool | None] = mapped_column(Boolean)
+    group_types: Mapped[list[str] | None] = mapped_column(JSON)
+    on_premises_sync_enabled: Mapped[bool | None] = mapped_column(Boolean)
+    management_metadata_complete: Mapped[bool | None] = mapped_column(Boolean)
     security_enabled: Mapped[bool | None] = mapped_column(Boolean)
     present: Mapped[bool] = mapped_column(Boolean)
     last_seen_run_id: Mapped[int] = mapped_column(ForeignKey("entra_sync_runs.id"))

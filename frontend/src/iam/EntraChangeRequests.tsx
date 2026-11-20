@@ -5,12 +5,22 @@ import { Feedback, Panel, QueryState } from "./common";
 import { displayTime, useMutation, useQuery, type Session } from "./data";
 
 const endpoint = "/entra/automation";
+const errors: Record<string, string> = {
+  graph_throttled: "Microsoft throttled the request. Try again later.",
+  graph_unavailable: "Microsoft was temporarily unavailable.",
+  graph_unauthorized: "Microsoft Graph rejected the application token.",
+  graph_forbidden: "Microsoft Graph denied this operation.",
+  membership_forbidden: "Microsoft Graph refused group membership access.",
+  invalid_response: "Microsoft returned data that could not be validated.",
+  write_conflict: "The current membership differs from the approved preview.",
+  write_unsupported: "This group does not support controlled provisioning.",
+};
 interface Draft {
   employee_id: number; group_id: string; add: boolean; justification: string;
 }
 interface Preview { user_id: string; group_id: string; expected: boolean; snapshot_id: number }
 interface Change {
-  id: number; employee_id: number; requester_id: number; status: string; expires_at: string;
+  id: number; employee_id: number | null; user_object_id: string; error_code: string | null; requester_id: number; status: string; expires_at: string;
   request: Preview & Draft;
 }
 
@@ -75,7 +85,9 @@ export function EntraChangeRequests({ session }: { session: Session }) {
       <ul className="iam-list">{items.map(item => <li key={item.id}>
         <div>
           <strong>#{item.id} · {t(item.status)} · {t(item.request.add ? "Add membership" : "Remove membership")}</strong>
-          <p>{t("Employee ID")} #{item.employee_id} · {item.request.group_id}</p>
+          <p>{item.employee_id ? `${t("Employee ID")} #${item.employee_id}` :
+            <a href={`#entra/users/${item.user_object_id}`}>{item.user_object_id}</a>} · {item.request.group_id}</p>
+          {item.error_code && <p role="status">{t(errors[item.error_code] ?? item.error_code)}</p>}
           <p>{item.request.justification}</p>
           <p>{t("Membership in snapshot")}: {t(item.request.expected ? "Present" : "Absent")} · {t("Expires at")}: {displayTime(item.expires_at)}</p>
         </div>

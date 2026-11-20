@@ -18,7 +18,6 @@ import "./App.css";
 import { Brand, BrandCredit, BrandEmblem } from "./Brand";
 import LoginPage from "./LoginPage";
 import DashboardPage from "./dashboard/DashboardPage";
-import EmployeesPage from "./EmployeesPage";
 import { t, useLanguage, useLocalizedValidation } from "./i18n";
 import { SettingsPage } from "./iam/SettingsPage";
 import { RiskIndicators } from "./iam/GovernancePage";
@@ -95,6 +94,16 @@ function App() {
     };
   }, [token]);
 
+  useEffect(() => {
+    const openDirectoryLink = () => {
+      if (location.hash.startsWith("#entra/users/")) setActivePage("Employees");
+      if (location.hash.startsWith("#entra/groups/")) setActivePage("Access Groups");
+    };
+    openDirectoryLink();
+    window.addEventListener("hashchange", openDirectoryLink);
+    return () => window.removeEventListener("hashchange", openDirectoryLink);
+  }, []);
+
   function handleLogin(accessToken: string) {
     sessionStorage.setItem("identityops_token", accessToken);
     setToken(accessToken);
@@ -121,7 +130,6 @@ function App() {
   }
 
   const isDashboard = activePage === "Dashboard";
-  const isEmployees = activePage === "Employees";
   const displayName = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
   const initials = getInitials(currentEmployee);
 
@@ -147,7 +155,7 @@ function App() {
                         aria-label={t(item.label)}
                         aria-current={activePage === item.label ? "page" : undefined}
                         title={t(item.label)}
-                        onClick={() => setActivePage(item.label)}
+                        onClick={() => { if (location.hash) history.replaceState(null, "", location.pathname + location.search); setActivePage(item.label); }}
                       >
                         <Icon size={18} strokeWidth={1.8} />
                         <span>{t(item.label)}</span>
@@ -204,8 +212,6 @@ function App() {
           {isDashboard ? (
             <div className="iam-page"><DashboardPage key={language} token={token} navigate={setActivePage} />
               <RiskIndicators token={token} onOpen={() => setActivePage("Governance findings")} /></div>
-          ) : isEmployees && token ? (
-            <EmployeesPage key={language} token={token} employeeId={currentEmployee.id} />
           ) : activePage === "Settings" ? (
             <SettingsPage />
           ) : (

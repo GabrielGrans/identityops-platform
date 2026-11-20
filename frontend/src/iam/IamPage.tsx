@@ -1,4 +1,5 @@
 import { t } from "../i18n";
+import { DirectoryWorkspace } from "./UnifiedEntraDirectory";
 import { EntraGovernancePage } from "./EntraGovernancePage";
 import { GovernancePage } from "./GovernancePage";
 import { CertificationPage } from "./CertificationPage";
@@ -19,7 +20,8 @@ export function IamPage({ page, token, employeeId }: { page: string; token: stri
       return <EntraGovernancePage session={session} notifications={page === "Notifications"} />;
     if (page === "Governance findings" && permissions.includes("governance:read")) return <GovernancePage session={session} />;
     if (page === "Access Requests") return <RequestsPage session={session} />;
-    if (page === "Access Groups" && permissions.includes("groups:read")) return <CatalogPage catalog="groups" session={session} />;
+    if (page === "Employees" || page === "Access Groups") return <DirectoryWorkspace
+      kind={page === "Employees" ? "users" : "groups"} session={session} />;
     if (page === "Permissions" && permissions.includes("permissions:read")) return <CatalogPage catalog="permissions" session={session} />;
     if (page === "Departments" && permissions.includes("departments:read")) return <CatalogPage catalog="departments" session={session} />;
     if (page === "Microsoft Entra ID" && permissions.includes("entra:read")) return <EntraPage session={session} />;

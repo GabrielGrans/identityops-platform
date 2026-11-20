@@ -9,6 +9,7 @@ interface Alert {
   payload: {
     rule: string; identity: string; policy: string; evidence: unknown[];
     severity: string; recommended_action: string; employee_id: number | null;
+    user_object_id?: string; group_ids?: string[];
   };
 }
 
@@ -17,7 +18,7 @@ const findingLabels: Record<string, string> = {
   unexpected_access: "Unexpected access", missing_access: "Missing required access",
   privileged_access: "Unauthorized privileged access", segregation_of_duties: "Segregation of duties conflicts",
   inactive_access: "Inactive identities retaining access", overdue_review: "Overdue access reviews",
-  provisioning_failed: "Provisioning failed",
+  provisioning_failed: "Provisioning failed", expired_exception: "Expired access exception",
 };
 
 export function EntraGovernancePage({ session, notifications }: { session: Session; notifications: boolean }) {
@@ -69,7 +70,7 @@ export function EntraGovernancePage({ session, notifications }: { session: Sessi
       <p>{t("Rules report findings. They do not grant or revoke access.")}</p>
       <p>{t("Role rules match job title, local department and local employment status. Use Entra object IDs for groups and exceptions.")}</p>
       <details><summary>{t("Policy format")}</summary>
-        <pre>{JSON.stringify({ review_days: 30, roles: [{ name: "", job_title: "", department_id: null,
+        <pre>{JSON.stringify({ review_days: 30, roles: [{ name: "", job_title: "", entra_department: "", department_id: null,
           employment_status: "", approved: [], required: [], privileged: [], forbidden: [],
           exceptions: [{ user_id: "", group_id: "", until: "YYYY-MM-DD" }] }] }, null, 2)}</pre>
       </details>
@@ -94,7 +95,10 @@ function FindingDetails({ item }: { item: Alert }) {
   return <>
     <strong>{t(findingLabels[item.payload.rule] ?? item.payload.rule)}</strong>
     <dl>
-      <dt>{t("Identity")}</dt><dd>{item.payload.identity}</dd>
+      <dt>{t("Identity")}</dt><dd>{item.payload.user_object_id ?
+        <a href={`#entra/users/${item.payload.user_object_id}`}>{item.payload.identity}</a> : item.payload.identity}</dd>
+      {!!item.payload.group_ids?.length && <><dt>{t("Groups")}</dt><dd>{item.payload.group_ids.map(id =>
+        <p key={id}><a href={`#entra/groups/${id}`}>{id}</a></p>)}</dd></>}
       <dt>{t("Policy")}</dt><dd>{t(item.payload.policy)}</dd>
       <dt>{t("Current evidence")}</dt><dd><pre>{JSON.stringify(item.payload.evidence, null, 2)}</pre></dd>
       <dt>{t("Recommended action")}</dt><dd>{t(item.payload.recommended_action)}</dd>

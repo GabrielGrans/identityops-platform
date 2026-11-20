@@ -34,9 +34,9 @@ def main():
                     if connection.scalar(lock, key):
                         try:
                             with SessionLocal() as db:
-                                sync_due(db, config.tenant_id, settings.ENTRA_SYNC_INTERVAL_MINUTES, make_client)
+                                synchronized = sync_due(db, config.tenant_id, settings.ENTRA_SYNC_INTERVAL_MINUTES, make_client)
                                 execute_due(db, settings, config.tenant_id, make_client)
-                                if monotonic() >= refresh_due:
+                                if synchronized or monotonic() >= refresh_due:
                                     refresh_alerts(db, config.tenant_id)
                                     refresh_due = monotonic() + 60
                         finally:

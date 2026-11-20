@@ -36,10 +36,18 @@ def lock_code(db, key):
 
 class Change(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    employee_id: int = Field(gt=0)
+    employee_id: int | None = Field(default=None, gt=0)
+    user_id: UUID | None = None
     group_id: UUID
     add: bool
     justification: str = Field(min_length=8, max_length=1000)
+
+
+    @model_validator(mode="after")
+    def validate_subject(self):
+        if (self.employee_id is None) == (self.user_id is None):
+            raise ValueError("Select exactly one employee or Entra user")
+        return self
 
 
 class ConfirmedChange(Change):
@@ -60,6 +68,7 @@ class ExceptionRule(BaseModel):
 class Role(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     job_title: str = Field(default="", max_length=120)
+    entra_department: str = Field(default="", max_length=256)
     department_id: int | None = Field(default=None, gt=0)
     employment_status: Literal["active", "inactive", ""] = ""
     approved: list[UUID] = Field(default_factory=list, max_length=100)
@@ -95,7 +104,7 @@ def schedule(db: DB, config: Config, actor: Reader):
 
 def check(db, config, tenant, data):
     try:
-        return preview(db, config, tenant, data.employee_id, str(data.group_id), data.add)
+        return preview(db, config, tenant, data.employee_id, str(data.group_id), data.add, str(data.user_id) if data.user_id else None)
     except GraphError as error:
         raise HTTPException(409, str(error)) from None
 
@@ -115,13 +124,14 @@ def create_request(data: ConfirmedChange, db: DB, config: Config, actor: Request
         raise HTTPException(409, "The snapshot changed; preview the request again.")
     lock_code(db, f"entra-request:{tenant}:{request['user_id']}:{request['group_id']}")
     pending = db.execute(select(changes.c.request).where(changes.c.tenant == tenant,
-        changes.c.employee_id == data.employee_id,
+        changes.c.user_object_id == request["user_id"], changes.c.group_object_id == request["group_id"],
         changes.c.status.in_(("pending", "approved", "executing")), changes.c.expires_at > utcnow())).scalars()
     if any(item["group_id"] == request["group_id"] for item in pending):
         raise HTTPException(409, "An open request already exists for this membership.")
     now = utcnow()
     request["justification"] = data.justification.strip()
-    row = db.execute(changes.insert().values(tenant=tenant, employee_id=data.employee_id, requester_id=actor.id,
+    row = db.execute(changes.insert().values(tenant=tenant, employee_id=request["employee_id"], requester_id=actor.id,
+        user_object_id=request["user_id"], group_object_id=request["group_id"],
         status="pending", request=request, expires_at=now + timedelta(hours=24), next_attempt=now,
         attempts=0).returning(changes)).mappings().one()
     audit(db, row, "requested", actor.id, operation="add" if data.add else "remove",
@@ -161,8 +171,11 @@ def decide(id: int, data: Decision, db: DB, config: Config, actor: Approver):
     if len(data.note.strip()) < 8:
         raise HTTPException(422, "Provide a decision note.")
     if data.approve:
-        current = check(db, config, tenant, Change(employee_id=row.employee_id, add=row.request["add"],
+        current = check(db, config, tenant, Change(employee_id=None if row.request.get("remote_subject") else row.employee_id,
+                        user_id=row.request["user_id"] if row.request.get("remote_subject") else None, add=row.request["add"],
                         group_id=row.request["group_id"], justification=row.request["justification"]))
+        if current["employee_id"] == actor.id:
+            raise HTTPException(403, "A different reviewer must approve this request.")
         if any(current[key] != row.request[key] for key in ("user_id", "expected")):
             raise HTTPException(409, "The current membership differs from the approved preview.")
     status = "approved" if data.approve else "rejected"

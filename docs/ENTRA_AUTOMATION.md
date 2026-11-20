@@ -56,3 +56,5 @@ python -m backend.app.scripts.entra_worker
 ```
 
 Run these as separate processes, then start Desktop using `npm --prefix frontend ci` and `npm --prefix frontend run desktop:dev`. First validate read-only synchronization with a test tenant. Close the client and check the schedule and Audit Logs after reopening it. For a separately approved write test, create and preview a request for an allowlisted test group, approve using a different account, then verify the request state, membership and audit event.
+
+For synchronized Employees and Access Groups, immutable subjects without a local employee, and directory capabilities, see [Unified Entra directory](UNIFIED_ENTRA_DIRECTORY.md).

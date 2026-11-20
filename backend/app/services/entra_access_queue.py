@@ -7,7 +7,7 @@ from backend.app.core.authorization import effective_permissions
 from backend.app.models.employee import Employee
 from backend.app.models.entra import EntraGroup, EntraMembership, EntraUser
 from backend.app.services.audit_service import record_event
-from backend.app.services.entra_automation_tables import changes, policies
+from backend.app.services.entra_automation_tables import changes, policies, state
 from backend.app.services.entra_service import utcnow
 from backend.app.services.enterprise_governance import latest_snapshot, policy_table
 from backend.app.services.graph_client import GraphError
@@ -36,25 +36,46 @@ def permitted_group(db, config, tenant, group_id):
     return all(group["group_id"] != local for group in local_rules.get("privileged_groups", []))
 
 
-def preview(db, config, tenant, employee_id, group_id, add):
+def eligibility(db, config, tenant, group, *, allowed=None):
+    if group.role_assignable is True:
+        return "protected"
+    if (
+        group.management_metadata_complete is not True or group.security_enabled is not True
+        or group.mail_enabled is not False or group.role_assignable is not False
+        or group.on_premises_sync_enabled is True or group.group_types != []
+    ):
+        return "unsupported"
+    if allowed is None:
+        allowed = permitted_group(db, config, tenant, group.object_id)
+    return "eligible" if allowed else "protected"
+
+
+def preview(db, config, tenant, employee_id, group_id, add, user_id=None):
     snapshot = latest_snapshot(db, tenant)
     if not snapshot_is_recent(snapshot) or not permitted_group(db, config, tenant, group_id):
         raise GraphError("write_unsupported")
-    user = db.scalar(select(EntraUser).where(EntraUser.local_employee_id == employee_id,
-        EntraUser.tenant_id == tenant, EntraUser.present.is_(True), EntraUser.last_seen_run_id == snapshot.id))
+    user = db.scalar(select(EntraUser).where(
+        EntraUser.object_id == user_id if user_id else EntraUser.local_employee_id == employee_id,
+        EntraUser.tenant_id == tenant, EntraUser.present.is_(True), EntraUser.last_seen_run_id == snapshot.id,
+    ))
     group = db.scalar(select(EntraGroup).where(EntraGroup.object_id == group_id, EntraGroup.present.is_(True),
         EntraGroup.tenant_id == tenant, EntraGroup.last_seen_run_id == snapshot.id, EntraGroup.security_enabled.is_(True)))
-    employee = db.get(Employee, employee_id)
-    if not user or not group or employee is None or (add and (employee.status != "active" or user.account_enabled is not True)):
+    employee = db.get(Employee, user.local_employee_id) if user and user.local_employee_id else None
+    if not user or not group or (employee_id is not None and user.local_employee_id != employee_id):
+        raise GraphError("write_unsupported")
+    if user_id and eligibility(db, config, tenant, group, allowed=True) != "eligible":
+        raise GraphError("write_unsupported")
+    if add and (user.account_enabled is not True or (employee and employee.status != "active")):
         raise GraphError("write_unsupported")
     member = db.get(EntraMembership, (group.id, user.id)) is not None
-    return {"user_id": user.object_id, "group_id": group_id, "add": add, "expected": member, "snapshot_id": snapshot.id}
+    return {"user_id": user.object_id, "employee_id": user.local_employee_id, "group_id": group_id,
+            "add": add, "expected": member, "snapshot_id": snapshot.id, "remote_subject": user_id is not None}
 
 
 def audit(db, row, action, actor=None, **details):
     record_event(db, actor, f"entra.provisioning.{action}", "entra_access_changes", row.id,
                  tenant_id=row.tenant, employee_id=row.employee_id,
-                 group_id=row.request["group_id"], **details)
+                 group_id=row.request["group_id"], user_id=row.request["user_id"], **details)
 
 
 def execute_due(db, config, tenant, make_client):
@@ -84,7 +105,10 @@ def execute_due(db, config, tenant, make_client):
             employee = db.get(Employee, actor_id)
             if not employee or employee.status != "active" or permission not in set(db.scalars(effective_permissions(actor_id))):
                 raise GraphError("write_unsupported")
-        target = preview(db, config, tenant, row.employee_id, request["group_id"], request["add"])
+        target = preview(db, config, tenant, row.employee_id, request["group_id"], request["add"],
+                         request["user_id"] if request.get("remote_subject") else None)
+        if target["employee_id"] == row.reviewer_id:
+            raise GraphError("write_conflict")
         if target["user_id"] != request["user_id"]:
             raise GraphError("write_conflict")
         graph = make_client()
@@ -101,7 +125,9 @@ def execute_due(db, config, tenant, make_client):
             graph.change_member(request["group_id"], request["user_id"], request["add"])
             if graph.has_member(request["group_id"], request["user_id"]) != request["add"]:
                 raise GraphError("graph_unavailable")
-        db.execute(changes.update().where(changes.c.id == row.id).values(status="succeeded", attempts=attempts))
+        db.execute(changes.update().where(changes.c.id == row.id).values(status="succeeded", attempts=attempts, error_code=None))
+        db.execute(state.update().where(state.c.tenant == tenant, state.c.failures == 0,
+                                        state.c.next_run > utcnow()).values(next_run=utcnow()))
         audit(db, row, "succeeded", verified_membership=request["add"])
     except GraphError as error:
         retriable = error.code in {"graph_throttled", "graph_unavailable", "graph_unauthorized"} and attempts < 5
@@ -111,7 +137,7 @@ def execute_due(db, config, tenant, make_client):
             status = db.scalar(select(changes.c.status).where(changes.c.id == row.id))
         delay = max(error.retry_after or 0, 30 * 2 ** (attempts - 1))
         db.execute(changes.update().where(changes.c.id == row.id).values(
-            status=status, attempts=attempts, next_attempt=utcnow() + timedelta(seconds=delay),
+            status=status, error_code=error.code, attempts=attempts, next_attempt=utcnow() + timedelta(seconds=delay),
         ))
         audit(db, row, "retry" if retriable else status, error_code=error.code, attempt=attempts)
     db.commit()
