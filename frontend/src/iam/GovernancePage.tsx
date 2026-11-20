@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { t } from "../i18n";
-import { Feedback, Page, Panel, QueryState } from "./common";
+import { Drawer, Feedback, Panel, QueryState } from "./common";
 import { useMutation, useQuery, type Session } from "./data";
 
 const rules: Record<string, string> = {
@@ -33,19 +33,25 @@ interface Findings {
   items: { rule: string; employee_id: number; evidence: Record<string, string | number | number[]> }[];
 }
 
-export function GovernancePage({ session }: { session: Session }) {
+export function GovernancePage({ session, policyOnly }: { session: Session; policyOnly: boolean }) {
   const mutation = useMutation(session.token);
+  const [edit, setEdit] = useState(false);
   const [offset, setOffset] = useState(0);
-  const report = useQuery<Findings>(session.token, `/governance/findings?offset=${offset}`, mutation.revision);
-  const policy = useQuery<Policy>(session.token, "/governance/policy", mutation.revision);
+  const report = useQuery<Findings>(session.token, policyOnly ? null : `/governance/findings?offset=${offset}`, mutation.revision);
+  const policy = useQuery<Policy>(session.token, policyOnly ? "/governance/policy" : null, mutation.revision);
   const canManage = session.permissions.includes("governance:manage");
-  return <Page title={t("Governance findings")}>
+  return <section aria-label={t(policyOnly ? "IdentityOps policy" : "Governance findings")}>
     <Feedback message={mutation.message} />
-    {canManage && <QueryState result={policy}>{data =>
-      <PolicyForm key={mutation.revision} policy={data} busy={mutation.busy}
-        save={next => { setOffset(0); void mutation.mutate("/governance/policy", "PUT", next); }} />
-    }</QueryState>}
-    <Panel title={t("Current evidence")}>
+    {policyOnly && <Panel title={t("Detection policy")}>
+      {canManage ? <button className="primary-button" onClick={() => setEdit(true)}>{t("Edit policy")}</button> :
+        <p>{t("Policy editing permission required.")}</p>}
+      {edit && <Drawer title={t("Edit policy")} close={() => setEdit(false)}>
+        <Feedback message={mutation.message} />
+        <QueryState result={policy}>{data => <PolicyForm policy={data} busy={mutation.busy}
+          save={async next => { if (await mutation.mutate("/governance/policy", "PUT", next)) setEdit(false); }} />}</QueryState>
+      </Drawer>}
+    </Panel>}
+    {!policyOnly && <Panel title={t("Current evidence")}>
       <QueryState result={report}>{data => <>
         {data.entra_state !== "evaluated" && <p>{t("Entra comparison requires directory access and a recent synchronization.")}</p>}
         {data.items.length ? <ul className="iam-list">{data.items.map((item, index) => <li key={offset + index}>
@@ -64,8 +70,8 @@ export function GovernancePage({ session }: { session: Session }) {
           <button className="secondary-button" onClick={mutation.refresh}>{t("Refresh")}</button>
         </div>
       </>}</QueryState>
-    </Panel>
-  </Page>;
+    </Panel>}
+  </section>;
 }
 
 function PolicyForm({ policy, busy, save }: { policy: Policy; busy: boolean; save: (policy: Policy) => void }) {

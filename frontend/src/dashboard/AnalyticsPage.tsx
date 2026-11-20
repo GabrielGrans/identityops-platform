@@ -1,112 +1,81 @@
 import { useState } from "react";
 import { t } from "../i18n";
-import { CertificationMetrics } from "../iam/CertificationMetrics";
-import { DepartmentOperations } from "../iam/DepartmentOperations";
-import { CollapsiblePanel, Page, Panel, QueryState } from "../iam/common";
-import { displayTime, useQuery } from "../iam/data";
-import { type Metrics, type Navigate } from "./OperationsDashboard";
+import { Page, Panel, QueryState, SectionTabs } from "../iam/common";
+import { useQuery, type QueryResult } from "../iam/data";
+import { AccessLine, ActivityRange, Bars, Distribution, type AccessActivity } from "./ActivityCharts";
+import { type Metrics } from "./OperationsDashboard";
 
-type AuditEvent = { action: string; created_at: string };
-
-type Area = "Directory inventory" | "Access operations" | "Audit activity";
-interface ActivityPage {
-  items: {id: number; category: string; label: string; created_at: string}[];
-}
-interface ActivitySummary {
-  activity: {joiners: number; movers: number; leavers: number; revocation_events: number; failed_entra_syncs: number} | null;
+const tabs = ["Access activity", "Risks & compliance", "Identities & departments"] as const;
+type Area = typeof tabs[number];
+interface Departments {
+  local: { name: string; employees: number | null }[];
+  entra: { name: string | null; employees: number }[];
 }
 
-export function AnalyticsPage({ token, navigate }: { token: string; navigate: Navigate }) {
-  const [area, setArea] = useState<Area>("Directory inventory");
+export function AnalyticsPage({ token, metrics }: { token: string; metrics: QueryResult<Metrics> }) {
+  const [area, setArea] = useState<Area>("Access activity");
   const [days, setDays] = useState("30");
-  const metrics = useQuery<Metrics>(token, "/v1/dashboard/operations");
+  const activity = useQuery<AccessActivity>(token, area === "Access activity" ? `/v1/dashboard/access-activity?days=${days}` : null);
+  const risk = useQuery<{ available: boolean; departments?: { name: string | null; count: number }[] | null; policy_findings?: number; violating_memberships?: number }>(token,
+    area === "Risks & compliance" && metrics.data?.findings ? "/v1/dashboard/risk-distribution" : null);
+  const departments = useQuery<Departments>(token, area === "Identities & departments" && metrics.data?.official_departments !== undefined
+    ? "/departments/operations/catalog" : null);
   return <Page title={t("Analytics")}>
-    <div className="analytics-switch iam-actions" role="group" aria-label={t("Analytics sections")}>
-      {(["Directory inventory", "Access operations", "Audit activity"] as const).map(name =>
-        <button key={name} className="secondary-button" aria-pressed={area === name} onClick={() => setArea(name)}>{t(name)}</button>)}
-    </div>
-    {area === "Audit activity" ? <>
-      <div className="iam-form"><label>{t("Activity window")}
-        <select value={days} onChange={event => setDays(event.target.value)}>
-          {["7", "30", "90"].map(day => <option key={day} value={day}>{t(`Last ${day} days`)}</option>)}
-        </select></label></div>
-      <AuditActivity token={token} days={days} navigate={navigate} />
-      <RecordedOperations token={token} days={days} />
-    </> : <QueryState result={metrics}>{data => area === "Directory inventory" ? <>
-      <Panel title={t("Directory inventory")}>
-        <MetricsList rows={[
-          ["Entra security groups", data.entra?.groups], ["Local RBAC groups", data.local_groups],
-          ["Official departments", data.official_departments],
-        ]} />
-      </Panel>
-      {data.official_departments !== undefined && <DepartmentOperations token={token} revision={0} />}
-      {data.entra && <Panel title={t("Entra synchronization health")}>
-        <p>{t(data.entra.health)} · {t("Last successful sync:")} {data.entra.last_success ? displayTime(data.entra.last_success) : "—"}</p>
-        <button className="secondary-button" onClick={() => navigate("Microsoft Entra ID")}>Microsoft Entra ID</button>
-      </Panel>}
-    </> : <>
-      {data.findings && <Panel title={t("Governance findings by severity")}>
-        <MetricsList rows={["critical", "high", "medium", "low"].map(level => [level, data.findings?.[level] ?? 0])} />
-      </Panel>}
-      <Panel title={t("Access operations")}>
-        <MetricsList rows={[["Provisioning in progress", data.provisioning_active], ["Failed provisioning", data.provisioning_failed]]} />
-        <button className="secondary-button" onClick={() => navigate("Access Requests")}>{t("Access Requests")}</button>
-      </Panel>
-      {data.certification && <CollapsiblePanel title={t("Access Certification Campaigns")}>
-        <CertificationMetrics result={data.certification} />
-        <button className="secondary-button" onClick={() => navigate("Access Certification")}>{t("Open campaigns")}</button>
-      </CollapsiblePanel>}
+    <SectionTabs items={tabs} active={area} change={setArea} label="Analytics sections" />
+    {area === "Access activity" ? <>
+      <ActivityRange days={days} change={setDays} />
+      <p>{t("IdentityOps provisioning only. External directory changes are excluded.")}</p>
+      {activity.errorStatus === 403 ? <p>{t("Provisioning approval permission required.")}</p> : <QueryState result={activity}>{result => {
+        if (!result.series) return <p>{t("Provisioning history is unavailable.")}</p>;
+        const [succeeded, failed] = result.series.reduce(([ok, error], row) => [ok + row.succeeded, error + row.failed], [0, 0]);
+        return <>
+          <Panel title={t("Verified access activity")}><AccessLine key={days} series={result.series} /></Panel>
+          <div className="panel-grid">
+            <Panel title={t("Most modified security groups")}><Bars rows={result.groups?.map(group => [group.name ?? group.id, group.count]) ?? []} /></Panel>
+            <Panel title={t("Provisioning outcomes")}>
+              <Distribution rows={[[t("Completed"), succeeded], [t("Failed"), failed]]} colors={["#a6c3bd", "#ed6256"]} />
+              <p>{t("Provisioning success rate")} · {succeeded + failed ? `${Math.round(succeeded / (succeeded + failed) * 100)}%` : "—"}</p>
+            </Panel>
+          </div>
+        </>;
+      }}</QueryState>}
+    </> : <QueryState result={metrics}>{data => <>
+      <p>{t("Current snapshot. Date filters require historical records.")}</p>
+      {area === "Risks & compliance" ? <div className="panel-grid">
+        <Panel title={t("Governance findings by severity")}>{data.findings ?
+          <Distribution rows={["critical", "high", "medium", "low"].map(level => [t(level), data.findings?.[level] ?? 0])} /> :
+          <p>{t("No operational checks are available for your role.")}</p>}</Panel>
+        <Panel title={t("Access Certification Campaigns")}>
+          {data.certification ? <Bars rows={[
+            [t("Completed"), data.certification.completed], [t("pending"), data.certification.pending],
+            [t("Overdue certifications"), data.certification.overdue],
+          ]} /> : <p>{t("No operational checks are available for your role.")}</p>}
+          <p>{t("Historical risk and certification trends are unavailable.")}</p>
+        </Panel>
+        {data.findings && <QueryState result={risk}>{distribution => distribution.available ?
+          <Panel title={t("Policy findings by department")}>
+            <p>{t("Open policy findings")} · {distribution.policy_findings}</p>
+            <p>{t("Memberships violating access policies")} · {distribution.violating_memberships ?? "—"}</p>
+            {distribution.departments && <Bars rows={distribution.departments.map(row => [row.name ?? t("Unassigned department"), row.count])} />}
+          </Panel> : null}</QueryState>}
+      </div> : <>
+        <div className="panel-grid">
+          <Panel title={t("Entra identity status")}>{data.entra?.identity_status ?
+            <Distribution rows={Object.entries(data.entra.identity_status).map(([label, count]) => [t(label), count])}
+              colors={["#a6c3bd", "#ed6256", "#a4adb8"]} /> : <p>{t("No records.")}</p>}</Panel>
+          <Panel title={t("Unassigned department")}>
+            <p>{t("Local IdentityOps")} · {data.local_unassigned ?? "—"}</p>
+            <p>Microsoft Entra ID · {data.entra?.unassigned ?? "—"}</p>
+            <p>{t("Historical directory growth is unavailable.")}</p>
+          </Panel>
+        </div>
+        {data.official_departments !== undefined && <QueryState result={departments}>{catalog => <div className="panel-grid">
+          <Panel title={t("Local department distribution")}><Bars rows={catalog.local.filter(row => row.employees !== null)
+            .sort((a, b) => (b.employees ?? 0) - (a.employees ?? 0)).slice(0, 10).map(row => [row.name, row.employees ?? 0])} /></Panel>
+          <Panel title={t("Entra department distribution")}><Bars rows={catalog.entra.filter(row => row.name)
+            .sort((a, b) => b.employees - a.employees).slice(0, 10).map(row => [row.name ?? t("Unassigned department"), row.employees])} /></Panel>
+        </div>}</QueryState>}
+      </>}
     </>}</QueryState>}
   </Page>;
-}
-
-function MetricsList({ rows }: { rows: [string, number | undefined][] }) {
-  return <dl className="analytics-metrics">{rows.map(([label, count]) => <div key={label}>
-    <dt>{t(label)}</dt><dd>{count ?? "—"}</dd>
-  </div>)}</dl>;
-}
-
-function AuditActivity({ token, days, navigate }: { token: string; days: string; navigate: Navigate }) {
-  const summary = useQuery<ActivitySummary>(token, `/v1/dashboard/summary?days=${days}`);
-  const activity = useQuery<ActivityPage>(token, `/v1/dashboard/activity?days=${days}&limit=8`);
-  return <>
-    <Panel title={t("Recorded in selected window")}>
-      <QueryState result={summary}>{({ activity: counts }) => counts ? <MetricsList rows={[
-        ["Joiners", counts.joiners], ["Movers", counts.movers], ["Leavers", counts.leavers],
-        ["Access revocation events", counts.revocation_events], ["Failed Entra synchronizations", counts.failed_entra_syncs],
-      ]} /> : <p>{t("Audit read permission required")}</p>}</QueryState>
-    </Panel>
-    <CollapsiblePanel title={t("Recent audit activity")}>
-      <QueryState result={activity}>{data => data.items.length ? <ul className="iam-list">{data.items.map(item =>
-        <li key={item.id}><span>{t(item.label)}</span><time dateTime={item.created_at}>{displayTime(item.created_at)}</time></li>
-      )}</ul> : <p>{t("No events match the current filters.")}</p>}</QueryState>
-      <button className="secondary-button" onClick={() => navigate("Audit Logs")}>{t("Audit Logs")}</button>
-    </CollapsiblePanel>
-  </>;
-}
-
-function RecordedOperations({ token, days }: { token: string; days: string }) {
-  const provisioning = useQuery<AuditEvent[]>(token, "/audit-events?category=entra_provisioning&limit=200");
-  const sync = useQuery<AuditEvent[]>(token, "/audit-events?category=entra_sync&limit=200");
-  if (provisioning.errorStatus === 403 || sync.errorStatus === 403) return null;
-  return <CollapsiblePanel title={t("Provisioning and synchronization activity")}>
-    <p>{t("Counts use the latest 200 audit events per category within the selected window.")}</p>
-    <QueryState result={provisioning}>{events => <OutcomeCounts events={events} days={days} prefix="entra.provisioning." />}</QueryState>
-    <QueryState result={sync}>{events => <OutcomeCounts events={events} days={days} prefix="entra.sync." />}</QueryState>
-  </CollapsiblePanel>;
-}
-
-function OutcomeCounts({ events, days, prefix }: { events: AuditEvent[]; days: string; prefix: string }) {
-  const [now] = useState(Date.now);
-  const cutoff = now - Number(days) * 86_400_000;
-  const counts = new Map<string, number>();
-  for (const event of events) {
-    if (Date.parse(event.created_at) < cutoff) continue;
-    const action = event.action.slice(prefix.length);
-    counts.set(action, (counts.get(action) ?? 0) + 1);
-  }
-  return <section>
-    <h3>{t(prefix === "entra.sync." ? "Entra synchronization" : "Entra provisioning")}</h3>
-    {counts.size ? <MetricsList rows={[...counts.entries()]} /> : <p>{t("No events match the current filters.")}</p>}
-  </section>;
 }

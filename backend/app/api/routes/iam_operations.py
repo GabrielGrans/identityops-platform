@@ -1,7 +1,9 @@
 from collections import Counter
+from datetime import timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, inspect, select
+from sqlalchemy import func, inspect, select, true
 
 from backend.app.api.routes.entra import Config, DB
 from backend.app.api.routes.governance import Actor
@@ -10,7 +12,7 @@ from backend.app.models.certification import CertificationCampaign, Certificatio
 from backend.app.models.department import Department
 from backend.app.models.employee import Employee
 from backend.app.models.entra import EntraGroup, EntraSyncRun, EntraUser
-from backend.app.models.governance import AccessRequest
+from backend.app.models.governance import AccessRequest, AuditEvent
 from backend.app.models.group import Group
 from backend.app.services.department_catalog import OFFICIAL, department_key, official_code
 from backend.app.services.entra_automation_tables import alerts, changes, policies, state
@@ -62,7 +64,7 @@ def dashboard_operations(db: DB, config: Config, actor: Actor):
         result["official_departments"] = len({code for department in db.scalars(select(Department).where(Department.is_active.is_(True)))
                                               if (code := official_code(department.name, department.code))})
     if "entra:read" in permissions:
-        result["entra"] = {"health": "unavailable", "last_success": None}
+        result["entra"] = {"health": "unavailable" if config.ENTRA_ENABLED else "disabled", "last_success": None}
         if tenant and {"entra_sync_runs", "entra_users", "entra_groups"} <= tables:
             snapshot = latest_snapshot(db, tenant)
             last = db.scalar(select(EntraSyncRun).where(EntraSyncRun.tenant_id == tenant)
@@ -82,6 +84,15 @@ def dashboard_operations(db: DB, config: Config, actor: Actor):
                     "groups": db.scalar(select(func.count()).select_from(EntraGroup).where(
                         EntraGroup.tenant_id == tenant, EntraGroup.present.is_(True), EntraGroup.security_enabled.is_(True))),
                 }
+                result["entra"]["identity_status"] = {
+                    "active": 0, "disabled": 0, "unknown": 0,
+                }
+                for enabled, count in grouped_counts(
+                    db, EntraUser.account_enabled, EntraUser.tenant_id == tenant,
+                    EntraUser.present.is_(True),
+                ).items():
+                    label = {True: "active", False: "disabled", None: "unknown"}[enabled]
+                    result["entra"]["identity_status"][label] = count
                 if "department" in {column["name"] for column in inspect(db.connection()).get_columns("entra_users")}:
                     result["entra"]["unassigned"] = sum(
                         count for label, count in grouped_counts(db, EntraUser.department,
@@ -101,6 +112,112 @@ def dashboard_operations(db: DB, config: Config, actor: Actor):
     if "certifications:manage" in permissions and {"certification_campaigns", "certification_items"} <= tables:
         result["certification"] = certification_metrics(db)
     return result
+
+
+@router.get("/v1/dashboard/access-activity")
+def access_activity(db: DB, config: Config, actor: Actor, days: Literal["7", "30", "90"] = "30"):
+    permissions = set(db.scalars(effective_permissions(actor.id)))
+    if "entra:approve_change" not in permissions:
+        raise HTTPException(403, "Dashboard permission required")
+    tenant = config.entra_tenant
+    if not tenant or not inspect(db.connection()).has_table(changes.name):
+        return {"available": False}
+
+    now = utcnow()
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start = today - timedelta(days=int(days) - 1)
+    month = today.replace(day=1)
+    terminal = ("succeeded", "failed", "conflict")
+    completed_at = func.min(AuditEvent.created_at).label("completed_at")
+    outcomes = (
+        select(changes.c.id, changes.c.status, changes.c.group_object_id,
+               changes.c.request["add"].as_boolean().label("added"),
+               changes.c.request["expected"].as_boolean().label("previously_present"),
+               completed_at)
+        .join(AuditEvent, (AuditEvent.target_id == changes.c.id)
+              & (AuditEvent.target_type == changes.name)
+              & (AuditEvent.action == ("entra.provisioning." + changes.c.status))
+              & (AuditEvent.details["tenant_id"].as_string() == tenant))
+        .where(changes.c.tenant == tenant, changes.c.status.in_(terminal),
+               (changes.c.status != "succeeded") | (AuditEvent.details["verified_membership"].as_boolean()
+                                                    == changes.c.request["add"].as_boolean()))
+        .group_by(changes.c.id)
+        .subquery()
+    )
+    # A verified no-op is a successful execution, but not a grant or revocation.
+    changed = (outcomes.c.status == "succeeded") & (outcomes.c.added != outcomes.c.previously_present)
+    grant = changed & outcomes.c.added.is_(True)
+    revoke = changed & outcomes.c.added.is_(False)
+    grants, revocations = db.execute(select(func.count().filter(grant), func.count().filter(revoke))
+                                    .where(outcomes.c.completed_at.between(month, now))).one()
+    timestamp = outcomes.c.completed_at
+    if db.get_bind().dialect.name == "postgresql":
+        timestamp = func.timezone("UTC", timestamp)
+    day = func.date(timestamp)
+    counts = {row[0]: row[1:] for row in db.execute(
+        select(day, func.count().filter(grant), func.count().filter(revoke),
+               func.count().filter(outcomes.c.status == "succeeded"),
+               func.count().filter(outcomes.c.status.in_(("failed", "conflict"))))
+        .where(outcomes.c.completed_at.between(start, now)).group_by(day)
+    )}
+    series = []
+    for offset in range(int(days)):
+        date = (start + timedelta(days=offset)).date()
+        added, removed, succeeded, failed = counts.get(date, (0, 0, 0, 0))
+        series.append({"date": date, "grants": added, "revocations": removed,
+                       "succeeded": succeeded, "failed": failed})
+
+    group_count = func.count().label("count")
+    groups = db.execute(select(outcomes.c.group_object_id, func.max(EntraGroup.display_name), group_count)
+        .outerjoin(EntraGroup, (EntraGroup.tenant_id == tenant)
+                   & (EntraGroup.object_id == outcomes.c.group_object_id))
+        .where(changed, outcomes.c.completed_at.between(start, now)).group_by(outcomes.c.group_object_id)
+        .order_by(group_count.desc(), outcomes.c.group_object_id).limit(10)).all()
+    return {"available": True, "month": {"grants": grants, "revocations": revocations}, "series": series,
+            "groups": [{"id": key, "name": name, "count": count} for key, name, count in groups]}
+
+
+@router.get("/v1/dashboard/risk-distribution")
+def risk_distribution(db: DB, config: Config, actor: Actor):
+    permissions = set(db.scalars(effective_permissions(actor.id)))
+    if not {"governance:read", "entra:read"} <= permissions:
+        raise HTTPException(403, "Dashboard permission required")
+    tenant = config.entra_tenant
+    if not tenant or not inspect(db.connection()).has_table(alerts.name):
+        return {"available": False}
+
+    rule = alerts.c.payload["rule"].as_string()
+    scope = (alerts.c.tenant == tenant, alerts.c.state != "resolved")
+    counts = grouped_counts(db, rule, *scope)
+    departments = None
+    if "departments:read" in permissions:
+        # Prefer the directory attribute, then the linked employee department.
+        name = func.coalesce(func.nullif(func.trim(EntraUser.department), ""), Department.name)
+        department_key_sql = func.lower(name)
+        display = func.min(name)
+        count = func.count().label("count")
+        rows = db.execute(select(display, count).select_from(alerts)
+            .outerjoin(EntraUser, (EntraUser.tenant_id == tenant)
+                       & (EntraUser.object_id == alerts.c.payload["identity"].as_string()))
+            .outerjoin(Employee, Employee.id == func.coalesce(EntraUser.local_employee_id, alerts.c.payload["employee_id"].as_integer()))
+            .outerjoin(Department, Department.id == Employee.department_id)
+            .where(*scope).group_by(department_key_sql).order_by(count.desc(), department_key_sql).limit(10)).all()
+        departments = [{"name": label, "count": count} for label, count in rows]
+    policy_findings = sum(counts.get(key, 0) for key in
+                          ("unexpected_access", "missing_access", "privileged_access", "segregation_of_duties"))
+    if db.get_bind().dialect.name == "postgresql":
+        groups = func.json_array_elements_text(alerts.c.payload["group_ids"]).table_valued(
+            "group_id", joins_implicitly=True,
+        ).render_derived()
+    else:
+        groups = func.json_each(alerts.c.payload["group_ids"]).table_valued("value", joins_implicitly=True)
+    group_id = groups.c.group_id if db.get_bind().dialect.name == "postgresql" else groups.c.value
+    violating = select(alerts.c.payload["identity"].as_string().label("identity"), group_id).select_from(
+        alerts.join(groups, true())
+    ).where(*scope, rule.in_(("unexpected_access", "privileged_access", "segregation_of_duties"))).distinct()
+    memberships = db.scalar(select(func.count()).select_from(violating.subquery()))
+    return {"available": True, "departments": departments, "policy_findings": policy_findings,
+            "violating_memberships": memberships}
 
 
 @router.get("/departments/operations/catalog", dependencies=[Depends(require_permission("departments:read"))])

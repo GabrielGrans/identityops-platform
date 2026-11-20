@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   Bell,
@@ -6,6 +6,9 @@ import {
   CheckCircle2,
   LayoutDashboard,
   LockKeyhole,
+  ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
   LogOut,
   Settings,
   ShieldCheck,
@@ -15,9 +18,11 @@ import {
 } from "lucide-react";
 
 import "./App.css";
+import "./enterprise.css";
 import { Brand, BrandCredit, BrandEmblem } from "./Brand";
 import LoginPage from "./LoginPage";
-import { OperationsDashboard } from "./dashboard/OperationsDashboard";
+import { useQuery } from "./iam/data";
+import { OperationsDashboard, type Metrics } from "./dashboard/OperationsDashboard";
 import { AnalyticsPage } from "./dashboard/AnalyticsPage";
 import { t, useLanguage, useLocalizedValidation } from "./i18n";
 import { SettingsPage } from "./iam/SettingsPage";
@@ -28,17 +33,16 @@ const navigation = [
   { label: "Dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
   { label: "Analytics", icon: Activity, section: "OVERVIEW" },
   { label: "Employees", icon: Users, section: "DIRECTORY" },
-  { label: "Microsoft Entra ID", icon: Building2, section: "DIRECTORY" },
   { label: "Departments", icon: Building2, section: "DIRECTORY" },
   { label: "Access Groups", icon: UsersRound, section: "DIRECTORY" },
   { label: "Permissions", icon: ShieldCheck, section: "DIRECTORY" },
   { label: "Access Requests", icon: LockKeyhole, section: "DIRECTORY" },
+  { label: "Microsoft Entra ID", icon: Building2, section: "DIRECTORY" },
   { label: "Identity Lifecycle", icon: UserPlus, section: "GOVERNANCE" },
   { label: "Access Reviews", icon: CheckCircle2, section: "GOVERNANCE" },
   { label: "Access Certification", displayLabel: "Access Certification Campaigns", icon: ShieldCheck, section: "GOVERNANCE" },
-  { label: "Entra role governance", icon: ShieldCheck, section: "GOVERNANCE" },
-  { label: "Notifications", icon: Bell, section: "GOVERNANCE" },
-  { label: "Governance findings", icon: ShieldCheck, section: "GOVERNANCE" },
+  { label: "Access Policies", icon: ShieldCheck, section: "GOVERNANCE" },
+  { label: "Alerts & Findings", icon: Bell, section: "GOVERNANCE" },
   { label: "Audit Logs", icon: Activity, section: "GOVERNANCE" },
 ];
 
@@ -54,7 +58,26 @@ function App() {
   );
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [compact, setCompact] = useState(() => localStorage.getItem("identityops_nav_compact") === "true");
+  const [collapsed, setCollapsed] = useState<string[]>(() => {
+    try {
+      const value: unknown = JSON.parse(localStorage.getItem("identityops_nav_sections") ?? "[]");
+      return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+    } catch { return []; }
+  });
   const [activePage, setActivePage] = useState("Dashboard");
+  const [syncRevision, setSyncRevision] = useState(0);
+  const status = useQuery<Metrics>(token ?? "", token && currentEmployee ? "/v1/dashboard/operations" : null, syncRevision, true);
+
+  useEffect(() => {
+    const refresh = () => setSyncRevision(value => value + 1);
+    window.addEventListener("identityops:sync-refresh", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("identityops:sync-refresh", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +128,11 @@ function App() {
     return () => window.removeEventListener("hashchange", openDirectoryLink);
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem("identityops_nav_compact", String(compact));
+    localStorage.setItem("identityops_nav_sections", JSON.stringify(collapsed));
+  }, [compact, collapsed]);
+
   function handleLogin(accessToken: string) {
     sessionStorage.setItem("identityops_token", accessToken);
     setToken(accessToken);
@@ -137,41 +165,40 @@ function App() {
   function navigate(page: string, source?: "local" | "entra") {
     const directory = page === "Employees" ? "users" : page === "Access Groups" ? "groups" : null;
     history.replaceState(null, "", location.pathname + location.search + (directory && source ? `#${source}/${directory}` : ""));
-    setActivePage(page);
+    setActivePage(page === "Notifications" || page === "Governance findings" ? "Alerts & Findings" : page);
   }
 
   return (
-    <div className="app-shell governance-shell directory-shell">
+    <div className={`app-shell governance-shell directory-shell enterprise-shell ${compact ? "compact-nav" : ""}`}>
       <aside className="sidebar">
         <Brand className="grans-sidebar" />
-
-        <nav className="sidebar-nav">
-          {["OVERVIEW", "DIRECTORY", "GOVERNANCE"].map(
-            (section) => (
-              <div className="nav-section" key={section}>
-                <span className="nav-section-label">{t(section)}</span>
-                {navigation
-                  .filter((item) => item.section === section)
-                  .map((item) => {
-                    const Icon = item.icon;
-
-                    return (
-                      <button
-                        className={`nav-item ${activePage === item.label ? "active" : ""}`}
-                        key={item.label}
-                        aria-label={t("displayLabel" in item && item.displayLabel ? item.displayLabel : item.label)}
-                        aria-current={activePage === item.label ? "page" : undefined}
-                        title={t("displayLabel" in item && item.displayLabel ? item.displayLabel : item.label)}
-                        onClick={() => { if (location.hash) history.replaceState(null, "", location.pathname + location.search); setActivePage(item.label); }}
-                      >
-                        <Icon size={18} strokeWidth={1.8} />
-                        <span>{t("displayLabel" in item && item.displayLabel ? item.displayLabel : item.label)}</span>
-                      </button>
-                    );
-                  })}
+        <button type="button" className="icon-button sidebar-toggle" aria-expanded={!compact}
+          title={t(compact ? "Expand sidebar" : "Collapse sidebar")} aria-label={t(compact ? "Expand sidebar" : "Collapse sidebar")}
+          onClick={() => setCompact(value => !value)}>
+          {compact ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
+        </button>
+        <nav className="sidebar-nav" aria-label={t("Main navigation")}>
+          {["OVERVIEW", "DIRECTORY", "GOVERNANCE"].map(section => {
+            const items = navigation.filter(item => item.section === section);
+            const hidden = !compact && collapsed.includes(section);
+            return <div className="nav-section" key={section}>
+              {!compact && <button className="nav-section-label nav-category" aria-expanded={!hidden} aria-controls={`nav-${section}`}
+                onClick={() => setCollapsed(value => hidden ? value.filter(key => key !== section) : [...value, section])}>
+                {t(section)} <ChevronDown size={14} aria-hidden="true" />
+              </button>}
+              <div id={`nav-${section}`}>
+                {items.filter(item => !hidden || item.label === activePage).map(item => {
+                  const Icon = item.icon;
+                  const label = t(item.displayLabel ?? item.label);
+                  return <button className={`nav-item ${activePage === item.label ? "active" : ""}`}
+                    key={item.label} aria-label={label} aria-current={activePage === item.label ? "page" : undefined}
+                    title={label} onClick={() => navigate(item.label)}>
+                    <Icon size={18} strokeWidth={1.8} aria-hidden="true" /><span>{label}</span>
+                  </button>;
+                })}
               </div>
-            ),
-          )}
+            </div>;
+          })}
         </nav>
 
         <div className="sidebar-bottom">
@@ -216,10 +243,16 @@ function App() {
         </header>
 
         <div className="page-content">
+          {activePage !== "Microsoft Entra ID" && status.data?.entra &&
+            ["failed", "stale"].includes(status.data.entra.health) &&
+            <div className="sync-warning" role="status">
+              <span>{t("Entra synchronization needs attention.")}</span>
+              <button className="secondary-button" onClick={() => navigate("Microsoft Entra ID")}>{t("Open synchronization diagnostics")}</button>
+            </div>}
           {isDashboard ? (
-            <OperationsDashboard key={language} token={token} navigate={navigate} />
+            <OperationsDashboard key={language} token={token} navigate={navigate} metrics={status} />
           ) : activePage === "Analytics" ? (
-            <AnalyticsPage key={language} token={token} navigate={navigate} />
+            <AnalyticsPage key={language} token={token} metrics={status} />
           ) : activePage === "Settings" ? (
             <SettingsPage />
           ) : (

@@ -1,7 +1,7 @@
 import { t } from "../i18n";
 import { useState, type FormEvent } from "react";
 import { type Employee } from "../services/api";
-import { Feedback, Page, Panel, QueryState, SelectId } from "./common";
+import { Drawer, Feedback, Page, QueryState, SelectId } from "./common";
 import { type CatalogItem, type Session, useMutation, useQuery } from "./data";
 
 const operations = [
@@ -18,6 +18,7 @@ function optionalNumber(form: FormData, field: string) {
 export function LifecyclePage({ session }: { session: Session }) {
   const { token, permissions } = session;
   const allowed = operations.filter((item) => permissions.includes(item.permission));
+  const [open, setOpen] = useState(false);
   const [operation, setOperation] = useState(allowed[0]?.value);
   const mutation = useMutation(token);
   const [employeeId, setEmployeeId] = useState("");
@@ -79,7 +80,9 @@ export function LifecyclePage({ session }: { session: Session }) {
   return <Page title={t("Identity Lifecycle")}>
     <Feedback message={mutation.message} />
     {successId && !mutation.message?.error && <p role="status">{t("Employee reference #")}{successId}</p>}
-    <Panel title={t("Run lifecycle event")}>
+    <button className="primary-button" onClick={() => setOpen(true)}>{t("Run lifecycle event")}</button>
+    {open && <Drawer title={t("Run lifecycle event")} close={() => setOpen(false)}>
+      <Feedback message={mutation.message} />
       <label>{t("Event")}<select aria-label={t("Event")} value={operation} onChange={(event) => {
         setOperation(event.target.value);
         setEmployeeId("");
@@ -120,6 +123,6 @@ export function LifecyclePage({ session }: { session: Session }) {
         <label>{t("Reason")}<textarea name="reason" required maxLength={1000} /></label>
         <button className="primary-button" disabled={mutation.busy}>{t("Offboard employee")}</button>
       </form>}
-    </Panel>
+    </Drawer>}
   </Page>;
 }

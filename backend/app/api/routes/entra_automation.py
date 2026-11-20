@@ -4,11 +4,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import inspect, select, text
+from sqlalchemy import String, cast, func, inspect, literal, or_, select, text
 
 from backend.app.api.routes.entra import Config, DB, Reader, tenant_scope
 from backend.app.core.authorization import can_direct_provision, effective_permissions, require_any_permission, require_permission
 from backend.app.models.employee import Employee
+from backend.app.models.entra import EntraGroup, EntraUser
+from backend.app.models.governance import AuditEvent
 from backend.app.services.audit_service import record_event
 from backend.app.services.entra_access_queue import audit, preview
 from backend.app.services.entra_automation_tables import alerts, changes, policies, state
@@ -155,16 +157,58 @@ AnyRequestOperator = Annotated[Employee, Depends(
         "entra:request_change", "entra:approve_change"))]
 
 
-@router.get("/requests")
-def list_requests(db: DB, config: Config, actor: AnyRequestOperator, before_id: int | None = Query(None, gt=0)):
-    tenant = scope(db, config)
-    approver = "entra:approve_change" in set(db.scalars(effective_permissions(actor.id)))
+def visible_requests(db, actor, tenant):
     statement = select(changes).where(changes.c.tenant == tenant)
-    if not approver:
+    if "entra:approve_change" not in set(db.scalars(effective_permissions(actor.id))):
         statement = statement.where(changes.c.requester_id == actor.id)
+    return statement
+
+
+@router.get("/requests")
+def list_requests(db: DB, config: Config, actor: AnyRequestOperator,
+                  before_id: int | None = Query(None, gt=0),
+                  query: str = Query("", max_length=150),
+                  status: str | None = Query(None, max_length=25)):
+    tenant = scope(db, config)
+    statement = visible_requests(db, actor, tenant)
+    fields = [cast(changes.c.id, String), changes.c.user_object_id, changes.c.group_object_id]
+    if "entra:read" in set(db.scalars(effective_permissions(actor.id))):
+        statement = statement.add_columns(EntraUser.display_name.label("employee_name"),
+                                          EntraGroup.display_name.label("group_name")).outerjoin(
+            EntraUser, (EntraUser.tenant_id == tenant) & (EntraUser.object_id == changes.c.user_object_id),
+        ).outerjoin(EntraGroup, (EntraGroup.tenant_id == tenant) & (EntraGroup.object_id == changes.c.group_object_id))
+        fields.extend((EntraUser.display_name, EntraUser.mail, EntraUser.principal_name, EntraGroup.display_name))
+    else:
+        statement = statement.add_columns(literal(None).label("employee_name"), literal(None).label("group_name"))
+    submitted_at = select(func.min(AuditEvent.created_at)).where(
+        AuditEvent.target_type == changes.name, AuditEvent.target_id == changes.c.id,
+        AuditEvent.details["tenant_id"].as_string() == tenant,
+        AuditEvent.action == "entra.provisioning.requested",
+    ).correlate(changes).scalar_subquery()
+    statement = statement.add_columns(submitted_at.label("created_at"))
+    if status:
+        statement = statement.where(changes.c.status == status)
+    if query.strip():
+        term = query.strip().lower()
+        statement = statement.where(or_(*(func.lower(field).contains(term, autoescape=True) for field in fields)))
     if before_id is not None:
         statement = statement.where(changes.c.id < before_id)
     return [dict(row) for row in db.execute(statement.order_by(changes.c.id.desc()).limit(50)).mappings()]
+
+
+@router.get("/requests/{id}/timeline")
+def request_timeline(id: int, db: DB, config: Config, actor: AnyRequestOperator):
+    tenant = scope(db, config)
+    if db.execute(visible_requests(db, actor, tenant).where(changes.c.id == id)).first() is None:
+        raise HTTPException(404, "Provisioning request not found.")
+    rows = db.scalars(select(AuditEvent).where(
+        AuditEvent.target_type == changes.name, AuditEvent.target_id == id,
+        AuditEvent.details["tenant_id"].as_string() == tenant,
+        AuditEvent.action.startswith("entra.provisioning.", autoescape=True),
+    ).order_by(AuditEvent.id.desc()).limit(50)).all()
+    return [{"id": row.id, "action": row.action.removeprefix("entra.provisioning."),
+             "created_at": row.created_at, "actor_id": row.actor_id,
+             "verified_membership": row.details.get("verified_membership")} for row in rows]
 
 
 @router.post("/requests/{id}/decision")

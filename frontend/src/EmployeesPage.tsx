@@ -14,7 +14,7 @@ import {
 
 import { EmployeeAccess, EmployeeForm, EmployeePasswordForm } from "./iam/EmployeeAdministration";
 import { DirectoryPagination } from "./iam/DirectoryControls";
-import { Feedback, Panel, QueryState } from "./iam/common";
+import { Drawer, Feedback, QueryState } from "./iam/common";
 import { employeeLabel, PAGE_SIZE, useMutation, useQuery } from "./iam/data";
 
 import {
@@ -177,7 +177,7 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
         <EmployeeForm key={action === "new" ? "new" : selectedId} employee={action === "edit" ? selected : undefined}
           employees={employees} session={session} onClose={() => setAction(undefined)}
           onSaved={() => { setSaved(true); setAction(undefined); void loadEmployees(); }} />}
-      {selected && action && action !== "edit" && action !== "new" && <Panel title={employeeLabel(selected)}>
+      {selected && action && action !== "edit" && action !== "new" && <Drawer title={employeeLabel(selected)} close={() => setAction(undefined)}>
         <div className="iam-actions">
           {has("employees:update") && <button className="secondary-button" onClick={() => { setSaved(false); setAction("edit"); }}>{t("Edit Employee")}</button>}
           {has("access:manage") && <button className="secondary-button" onClick={() => setAction("access")}>{t("Manage Access")}</button>}
@@ -186,13 +186,12 @@ function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
             <button className="secondary-button" disabled={mutation.busy} onClick={() => void changeStatus(selected)}>
               {selected.status === "active" ? t("Deactivate") : t("Activate")}
             </button>}
-          <button className="secondary-button" onClick={() => setAction(undefined)}>{t("Close details")}</button>
         </div>
         <EmployeeDetails id={selected.id} token={token} revision={mutation.revision} />
         {action === "access" && has("access:manage") && <EmployeeAccess key={selected.id} employee={selected} session={session} />}
         {action === "password" && has("employees:reset_password") &&
           <EmployeePasswordForm key={selected.id} employee={selected} token={token} onClose={() => setAction("view")} />}
-      </Panel>}
+      </Drawer>}
 
       <div className="employees-summary">
         <div className="employees-summary-icon">

@@ -1,7 +1,7 @@
 import { t } from "../i18n";
 import { useState, type FormEvent } from "react";
 import { type Employee } from "../services/api";
-import { Feedback, Panel, QueryState } from "./common";
+import { Drawer, Feedback, Panel, QueryState } from "./common";
 import { SearchChecks, SearchSelect } from "./DirectoryControls";
 import { employeeLabel, useQuery, type CatalogItem, type Session, useMutation } from "./data";
 
@@ -52,7 +52,7 @@ export function EmployeeForm({ employee, employees, session, onClose, onSaved }:
     }
   }
 
-  return <Panel title={employee ? t("Edit employee") : t("New employee")}>
+  return <Drawer close={onClose} title={employee ? t("Edit employee") : t("New employee")}>
     {validation && <p role="alert">{validation}</p>}
     <Feedback message={mutation.message} />
     <form className="iam-form" onSubmit={save}>
@@ -82,7 +82,7 @@ export function EmployeeForm({ employee, employees, session, onClose, onSaved }:
         <button className="secondary-button" type="button" disabled={mutation.busy} onClick={onClose}>{t("Cancel")}</button>
       </div>
     </form>
-  </Panel>;
+  </Drawer>;
 }
 
 export function EmployeePasswordForm({ employee, token, onClose }: {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { t } from "../i18n";
-import { Feedback, Page, Panel, QueryState } from "./common";
+import { Drawer, Feedback, Panel, QueryState } from "./common";
 import { useMutation, useQuery, type Session } from "./data";
 
 interface Alert {
@@ -26,20 +26,20 @@ export function EntraGovernancePage({ session, notifications }: { session: Sessi
   const [unread, setUnread] = useState(false);
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<string>();
+  const [openPolicy, setOpenPolicy] = useState(false);
   const [error, setError] = useState("");
-  const rolePolicy = useQuery<Record<string, unknown>>(session.token, notifications ? null : `${endpoint}/role-policy`, operations.revision);
+  const rolePolicy = useQuery<Record<string, unknown>>(session.token, notifications || !openPolicy ? null : `${endpoint}/role-policy`, operations.revision);
   const alerts = useQuery<Alert[]>(session.token, notifications ?
     `${endpoint}/notifications?unread=${unread}&offset=${offset}` : null, operations.revision);
   const detail = useQuery<Alert[]>(session.token, selected ? `${endpoint}/notifications?key=${selected}` : null,
     operations.revision);
   const canEdit = session.permissions.includes("governance:manage");
-  return <Page title={t(notifications ? "Notifications" : "Entra role governance")}>
+  return <section aria-label={t(notifications ? "Notifications" : "Entra role governance")}>
     <Feedback message={operations.message} />
     {notifications ? <>
-      {selected && <Panel title={t("Finding evidence")}>
-        <button className="secondary-button" onClick={() => setSelected(undefined)}>{t("Close details")}</button>
+      {selected && <Drawer title={t("Finding evidence")} close={() => setSelected(undefined)}>
         <QueryState result={detail}>{rows => rows.length ? <FindingDetails item={rows[0]} /> : <p>{t("No records.")}</p>}</QueryState>
-      </Panel>}
+      </Drawer>}
       <Panel title={t("Governance and provisioning alerts")}>
         <div className="iam-actions">
           <label className="iam-checkbox"><input type="checkbox" checked={unread} onChange={event => {
@@ -69,26 +69,30 @@ export function EntraGovernancePage({ session, notifications }: { session: Sessi
     </> : <Panel title={t("Role-based access policy")}>
       <p>{t("Rules report findings. They do not grant or revoke access.")}</p>
       <p>{t("Role rules match job title, local department and local employment status. Use Entra object IDs for groups and exceptions.")}</p>
+      <button className="primary-button" onClick={() => { setError(""); setOpenPolicy(true); }}>{t(canEdit ? "Edit policy" : "View policy")}</button>
+      {openPolicy && <Drawer title={t("Role-based access policy")} close={() => setOpenPolicy(false)}>
+      <Feedback message={operations.message} />
       <details><summary>{t("Policy format")}</summary>
         <pre>{JSON.stringify({ review_days: 30, roles: [{ name: "", job_title: "", entra_department: "", department_id: null,
           employment_status: "", approved: [], required: [], privileged: [], forbidden: [],
           exceptions: [{ user_id: "", group_id: "", until: "YYYY-MM-DD" }] }] }, null, 2)}</pre>
       </details>
       {error && <p role="alert">{error}</p>}
-      <QueryState result={rolePolicy}>{policy => <form key={operations.revision} className="iam-form" onSubmit={event => {
+      <QueryState result={rolePolicy}>{policy => <form key={operations.revision} className="iam-form" onSubmit={async event => {
         event.preventDefault();
         try {
           const body = JSON.parse(String(new FormData(event.currentTarget).get("policy")));
           setError("");
-          void operations.mutate(`${endpoint}/role-policy`, "PUT", body);
+          if (await operations.mutate(`${endpoint}/role-policy`, "PUT", body)) setOpenPolicy(false);
         } catch { setError(t("Enter a valid JSON policy.")); }
       }}>
         <label>{t("Role-based access policy")}<textarea rows={14} name="policy" readOnly={!canEdit} required
           defaultValue={JSON.stringify(policy, null, 2)} /></label>
         {canEdit && <button className="primary-button" disabled={operations.busy}>{t("Save policy")}</button>}
       </form>}</QueryState>
+      </Drawer>}
     </Panel>}
-  </Page>;
+  </section>;
 }
 
 function FindingDetails({ item }: { item: Alert }) {

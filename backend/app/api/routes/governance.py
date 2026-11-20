@@ -1,7 +1,8 @@
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from backend.app.api.routes.auth import get_current_employee
@@ -105,12 +106,33 @@ def audit_events(
     db: DB, actor: Auditor, before_id: Cursor = None, limit: Limit = 50,
     action: Annotated[str | None, Query(max_length=80)] = None,
     actor_id: Annotated[int | None, Query(gt=0)] = None,
-    category: Literal["entra_sync", "entra_provisioning"] | None = None,
+    category: Literal["entra_sync", "entra_provisioning", "governance", "authorization"] | None = None,
+    query: Annotated[str | None, Query(max_length=150)] = None,
+    start_on: date | None = None, end_on: date | None = None,
+    outcome: Literal["succeeded", "failed", "approved", "rejected"] | None = None,
 ):
     statement = select(AuditEvent)
+    prefixes = {
+        "entra_sync": ("entra.sync.",), "entra_provisioning": ("entra.provisioning.",),
+        "governance": ("governance.", "certification.", "review.", "entra.governance."),
+        "authorization": ("request.", "access.", "auth.", "group."),
+    }
     if category:
-        prefix = {"entra_sync": "entra.sync.", "entra_provisioning": "entra.provisioning."}[category]
-        statement = statement.where(AuditEvent.action.startswith(prefix, autoescape=True))
+        statement = statement.where(or_(*(AuditEvent.action.startswith(prefix, autoescape=True)
+                                          for prefix in prefixes[category])))
+    if query and query.strip():
+        statement = statement.where(AuditEvent.action.icontains(query.strip(), autoescape=True))
+    if start_on and end_on and start_on > end_on:
+        raise HTTPException(422, "Start date must be on or before end date.")
+    if start_on:
+        statement = statement.where(AuditEvent.created_at >= datetime.combine(start_on, time.min, timezone.utc))
+    if end_on and end_on < date.max:
+        statement = statement.where(AuditEvent.created_at < datetime.combine(end_on + timedelta(days=1), time.min, timezone.utc))
+    if outcome:
+        suffixes = {"succeeded": (".succeeded", ".success"), "failed": (".failed", ".conflict"),
+                    "approved": (".approved",), "rejected": (".rejected",)}
+        statement = statement.where(or_(*(AuditEvent.action.endswith(suffix, autoescape=True)
+                                          for suffix in suffixes[outcome])))
     if action is not None:
         statement = statement.where(AuditEvent.action == action)
     if actor_id is not None:

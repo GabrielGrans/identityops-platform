@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { t } from "../i18n";
 import { DirectoryWorkspace } from "./UnifiedEntraDirectory";
 import { EntraGovernancePage } from "./EntraGovernancePage";
@@ -7,8 +8,24 @@ import { EntraPage } from "./EntraPage";
 import { CatalogPage } from "./CatalogPage";
 import { LifecyclePage } from "./LifecyclePage";
 import { AuditPage, RequestsPage, ReviewsPage } from "./WorkflowPages";
-import { Page, QueryState } from "./common";
-import { useQuery } from "./data";
+import { Page, QueryState, SectionTabs } from "./common";
+import { useQuery, type Session } from "./data";
+
+const surfaces = {
+  "Access Policies": ["IdentityOps policy", "Entra role governance"],
+  "Alerts & Findings": ["Governance findings", "Notifications"],
+} as const;
+
+function GovernanceWorkspace({ page, session }: { page: keyof typeof surfaces; session: Session }) {
+  const [active, setActive] = useState<string>(surfaces[page][0]);
+  const tabs = session.permissions.includes("entra:read") ? surfaces[page] : surfaces[page].slice(0, 1);
+  return <Page title={t(page)}>
+    {tabs.length > 1 && <SectionTabs items={tabs} active={active} change={setActive} label={page} />}
+    {active === "Entra role governance" || active === "Notifications" ?
+      <EntraGovernancePage session={session} notifications={active === "Notifications"} /> :
+      <GovernancePage session={session} policyOnly={page === "Access Policies"} />}
+  </Page>;
+}
 
 const lifecyclePermissions = ["employees:create", "employees:update", "employees:deactivate"];
 
@@ -16,9 +33,8 @@ export function IamPage({ page, token, employeeId }: { page: string; token: stri
   const result = useQuery<string[]>(token, "/auth/me/permissions");
   return <QueryState result={result}>{(permissions) => {
     const session = { token, employeeId, permissions };
-    if (["Entra role governance", "Notifications"].includes(page) && permissions.includes("governance:read") && permissions.includes("entra:read"))
-      return <EntraGovernancePage session={session} notifications={page === "Notifications"} />;
-    if (page === "Governance findings" && permissions.includes("governance:read")) return <GovernancePage session={session} />;
+    if ((page === "Access Policies" || page === "Alerts & Findings") && permissions.includes("governance:read"))
+      return <GovernanceWorkspace page={page} session={session} />;
     if (page === "Access Requests") return <RequestsPage session={session} />;
     if (page === "Employees" || page === "Access Groups") return <DirectoryWorkspace
       kind={page === "Employees" ? "users" : "groups"} session={session} />;

@@ -2,7 +2,7 @@ import { DepartmentOperations } from "./DepartmentOperations";
 import { t } from "../i18n";
 import { useState, type FormEvent } from "react";
 import { type Employee } from "../services/api";
-import { CollapsiblePanel, Feedback, Page, Panel, QueryState } from "./common";
+import { CollapsiblePanel, DataTable, Drawer, Feedback, Page, Panel, QueryState, StatusBadge } from "./common";
 import { DirectoryPagination, SearchChecks, SearchSelect } from "./DirectoryControls";
 import { employeeLabel, PAGE_SIZE, type CatalogItem, type Session, useMutation, useQuery } from "./data";
 
@@ -56,9 +56,10 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
 
   return <Page title={t(titles[catalog])}>
     <Feedback message={mutation.message} />
+    {catalog === "permissions" && <p>{t("Internal RBAC controls IdentityOps actions. Microsoft 365 access is managed through Entra group memberships.")}</p>}
     {catalog === "departments" && <DepartmentOperations token={token} revision={mutation.revision} />}
     {allowEdit && <button className="primary-button" onClick={() => openForm("new")}>{catalog === "groups" ? t("New Group") : t("Create record")}</button>}
-    {edit && <Panel title={item ? t("Edit {p0}", { p0: String(item.name) }) : t("New record")}>
+    {edit && <Drawer close={() => setEdit(null)} title={item ? t("Edit {p0}", { p0: String(item.name) }) : t("New record")}>
       <form key={item?.id ?? "new"} className="iam-form" onSubmit={save}>
         <label>{t("Name")}<input name="name" required minLength={2} maxLength={100} defaultValue={item?.name} /></label>
         <label>{t("Code")}<input name="code" required minLength={2} maxLength={{ departments: 20, groups: 50, permissions: 100 }[catalog]} defaultValue={item?.code} /></label>
@@ -77,7 +78,7 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
           <button className="secondary-button" type="button" onClick={() => setEdit(null)}>{t("Cancel")}</button>
         </div>
       </form>
-    </Panel>}
+    </Drawer>}
     {selectedGroup && <GroupDetails key={`${selectedGroup.id}:${selectedGroup.view}`} session={session}
       groupId={selectedGroup.id} view={selectedGroup.view} revision={mutation.revision}
       onClose={() => setSelectedGroup(undefined)} onChange={mutation.refresh} />}
@@ -93,15 +94,15 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
         const total = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
         const current = Math.min(page, total);
         const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
-        return rows.length ? <><ul className="iam-list">
-        {rows.map((entry) => {
-          const enabled = requestable.data?.some((group) => group.id === entry.id);
-          return <li key={entry.id}>
-            <div>
-              <strong>{entry.name}</strong> <span>{entry.code} · {entry.is_active ? t("Active") : t("Inactive")}</span>
-              {entry.description && <p>{entry.description}</p>}
-            </div>
-            <div className="iam-actions">
+        return <>
+          <DataTable label={t(titles[catalog])} rows={rows} rowKey={entry => entry.id} columns={[
+            { label: t("Name"), render: entry => <strong>{entry.name}</strong> },
+            { label: t("Code"), render: entry => entry.code },
+            { label: t("Description"), render: entry => entry.description ?? "—" },
+            { label: t("Status"), render: entry => <StatusBadge>{t(entry.is_active ? "Active" : "Inactive")}</StatusBadge> },
+            { label: t("Actions"), render: entry => {
+              const enabled = requestable.data?.some(group => group.id === entry.id);
+              return <div className="iam-actions">
               {catalog === "groups" && <button className="secondary-button" onClick={() =>
                 setSelectedGroup({ id: entry.id, view: "details" })}>{t("View details")}</button>}
               {allowEdit && <button className="secondary-button" onClick={() => openForm(entry)}>{catalog === "groups" ? t("Edit Group") : t("Edit")}</button>}
@@ -123,11 +124,10 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
                 </button>}
               </>}
             </div>
-          </li>;
-        })}
-      </ul>
-      {total > 1 && <DirectoryPagination page={current} total={total} onPage={setPage} />}
-      </> : <p>{t("No records.")}</p>;
+            } },
+          ]} />
+          {total > 1 && <DirectoryPagination page={current} total={total} onPage={setPage} />}
+        </>;
       }}</QueryState>
       {requestable.error && <p role="alert">{requestable.error}</p>}
     </DirectoryPanel>
@@ -147,15 +147,14 @@ function GroupDetails({ session, groupId, view, revision, onClose, onChange }: {
   onClose: () => void; onChange: () => void;
 }) {
   const group = useQuery<CatalogItem>(session.token, `/groups/${groupId}`, revision, true);
-  return <Panel title={group.data?.name ?? t("Group #{p0}", { p0: String(groupId) })}>
-    <button className="secondary-button" onClick={onClose}>{t("Close details")}</button>
+  return <Drawer close={onClose} title={group.data?.name ?? t("Group #{p0}", { p0: String(groupId) })}>
     <QueryState result={group}>{entry => <>
       <p>{entry.code} · {entry.is_active ? t("Active") : t("Inactive")}</p>
       <p>{entry.description || t("No description.")}</p>
       {view === "permissions" && <Assignments session={session} group={entry} onChange={onChange} />}
       {view === "members" && <GroupMembers session={session} group={entry} />}
     </>}</QueryState>
-  </Panel>;
+  </Drawer>;
 }
 
 function Assignments({ session, group, onChange }: {

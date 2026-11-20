@@ -1,7 +1,7 @@
 import { CertificationMetrics, type Certification } from "./CertificationMetrics";
 import { t } from "../i18n";
 import { useState, type FormEvent } from "react";
-import { CollapsiblePanel, Feedback, Page, Pagination, Panel, QueryState } from "./common";
+import { CollapsiblePanel, DataTable, Drawer, Feedback, Page, Pagination, Panel, QueryState } from "./common";
 import { displayTime, PAGE_SIZE, useCursor, useMutation, useQuery, type Session } from "./data";
 
 const campaignStatuses = ["draft", "active", "completed", "cancelled", "expired"] as const;
@@ -58,6 +58,7 @@ export function CertificationPage({ session }: { session: Session }) {
   const progress = useQuery<{ certification?: Certification }>(token, canManage ? "/v1/dashboard/operations" : null);
   const operation = useMutation(token);
   const cursor = useCursor();
+  const [creating, setCreating] = useState(false);
   const [status, setStatus] = useState("");
   const [selected, setSelected] = useState<number>();
   const list = useQuery<Campaign[]>(token,
@@ -76,6 +77,7 @@ export function CertificationPage({ session }: { session: Session }) {
       reviewer_ids: reviewerIds(values.get("reviewers")),
     })) {
       form.reset();
+      setCreating(false);
       cursor.reset();
       setStatus("");
     }
@@ -94,7 +96,9 @@ export function CertificationPage({ session }: { session: Session }) {
       <button className="secondary-button" onClick={operation.refresh} disabled={operation.busy}>{t("Refresh")}</button>
     </div>
     <Feedback message={operation.message} />
-    {canManage && <Panel title={t("Create campaign")}>
+    {canManage && <button className="primary-button" onClick={() => setCreating(true)}>{t("Create campaign")}</button>}
+    {creating && <Drawer title={t("Create campaign")} close={() => setCreating(false)}>
+      <Feedback message={operation.message} />
       <form className="iam-form" onSubmit={(event) => void create(event)}>
         <label>{t("Name")}<input name="name" required maxLength={120} /></label>
         <label>{t("Description")}<textarea name="description" maxLength={2000} /></label>
@@ -104,7 +108,7 @@ export function CertificationPage({ session }: { session: Session }) {
         <label>{t("Reviewer employee IDs (comma-separated)")}<input name="reviewers" required defaultValue={session.employeeId} /></label>
         <button className="primary-button" disabled={operation.busy}>{t("Create draft")}</button>
       </form>
-    </Panel>}
+    </Drawer>}
     <CollapsiblePanel title={t("Campaigns")}>
       <label>{t("Status")}<select aria-label={t("Campaign status")} value={status} onChange={(event) => {
         setStatus(event.target.value);
@@ -114,14 +118,12 @@ export function CertificationPage({ session }: { session: Session }) {
         {campaignStatuses.map((value) => <option key={value} value={value}>{t(value)}</option>)}
       </select></label>
       <QueryState result={list}>{(campaigns) => <>
-        {campaigns.length ? <ul className="iam-list">{campaigns.map((campaign) => <li key={campaign.id}>
-          <div>
-            <strong>{campaign.name}</strong>
-            <p>{t(campaign.status)} · {campaign.starts_on}{" "}{t("to")}{" "}{campaign.due_on}{" "}{t("(UTC)")}</p>
-          </div>
-          <button className="secondary-button" aria-pressed={selected === campaign.id}
-            onClick={() => setSelected(campaign.id)}>{t("Open campaign")}</button>
-        </li>)}</ul> : <p>{t("No campaigns to display.")}</p>}
+        <DataTable label={t("Campaigns")} rows={campaigns} rowKey={campaign => campaign.id} columns={[
+          { label: t("Name"), render: campaign => <button className="secondary-button" onClick={() => setSelected(campaign.id)}>{campaign.name}</button> },
+          { label: t("Status"), render: campaign => t(campaign.status) },
+          { label: t("Start date (UTC)"), render: campaign => campaign.starts_on },
+          { label: t("Due date (UTC)"), render: campaign => campaign.due_on },
+        ]} />
         <Pagination rows={campaigns} cursor={cursor} />
       </>}</QueryState>
     </CollapsiblePanel>
@@ -141,8 +143,8 @@ function CampaignPanel({ id, session, operation, onClose }: {
     `${path}/items?limit=${PAGE_SIZE}${cursor.query}${filter ? `&status=${filter}` : ""}` : null, operation.revision);
   const canManage = session.permissions.includes("certifications:manage");
 
-  return <Panel title={result.data?.name ?? t("Campaign details")}>
-    <button className="secondary-button" onClick={onClose}>{t("Close details")}</button>
+  return <Drawer title={result.data?.name ?? t("Campaign details")} close={onClose}>
+    <Feedback message={operation.message} />
     <QueryState result={result}>{(campaign) => <>
       {campaign.description && <p>{campaign.description}</p>}
       <p>{t("Owner #")}{campaign.owner_id} · {t(campaign.status)} · {campaign.starts_on}{" "}{t("to")}{" "}{campaign.due_on}{" "}{t("(UTC)")}</p>
@@ -196,7 +198,7 @@ function CampaignPanel({ id, session, operation, onClose }: {
         <Pagination rows={rows} cursor={cursor} />
       </>}</QueryState>
     </>}</QueryState>
-  </Panel>;
+  </Drawer>;
 }
 
 function DecisionForm({ busy, onDecision }: {

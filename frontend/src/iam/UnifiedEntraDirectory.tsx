@@ -3,7 +3,7 @@ import { t } from "../i18n";
 import EmployeesPage from "../EmployeesPage";
 import { request } from "../services/api";
 import { CatalogPage } from "./CatalogPage";
-import { Feedback, Page, Panel, QueryState } from "./common";
+import { DataTable, Drawer, Feedback, Page, Panel, QueryState, StatusBadge } from "./common";
 import { provisioningStatus, useMutation, useQuery, type Session } from "./data";
 
 type Kind = "users" | "groups";
@@ -35,12 +35,6 @@ function selectedObject(kind: Kind) {
 
 function useDirectoryRefresh() {
   const [revision, setRevision] = useState(0);
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") setRevision(current => current + 1);
-    }, 10000);
-    return () => clearInterval(timer);
-  }, []);
   return [revision, () => setRevision(current => current + 1)] as const;
 }
 
@@ -70,33 +64,46 @@ export function DirectoryWorkspace({ kind, session }: { kind: Kind; session: Ses
       <button className="secondary-button" aria-pressed={active === "entra"} onClick={() => setView("entra")}>Microsoft Entra ID</button>
       <button className="secondary-button" aria-pressed={active === "local"} onClick={() => setView("local")}>{t("Local IdentityOps")}</button>
     </div>}
-    {active === "entra" && canReadEntra ? <RemoteDirectory kind={kind} session={session} objectId={objectId} />
+    {active === "entra" && canReadEntra ? <RemoteDirectory kind={kind} session={session} objectId={objectId} close={() => { history.replaceState(null, "", `#entra/${kind}`); setObjectId(undefined); }} />
       : kind === "users" ? <EmployeesPage token={session.token} employeeId={session.employeeId} />
       : <CatalogPage catalog="groups" session={session} />}
   </>;
 }
 
-function RemoteDirectory({ kind, session, objectId }: { kind: Kind; session: Session; objectId?: string }) {
+function RemoteDirectory({ kind, session, objectId, close }: { kind: Kind; session: Session; objectId?: string; close: () => void }) {
   const [revision, refresh] = useDirectoryRefresh();
   return <Page title={t(kind === "users" ? "Employees" : "Access Groups")}>
     {objectId && <DirectoryDetails key={objectId} kind={kind} session={session}
-      objectId={objectId} revision={revision} refresh={refresh} />}
+      objectId={objectId} revision={revision} refresh={refresh} close={close} />}
     <Panel title={t(kind === "users" ? "Entra employees" : "Entra security groups")}>
       <div className="iam-actions"><button className="secondary-button" onClick={refresh}>{t("Refresh")}</button></div>
-      {kind === "users" ? <SearchRows<User> token={session.token} path={`${api}/users`} revision={revision}
-        label={t("Search name, email, job title or department")} render={user => <UserRow user={user} />} />
+      {kind === "users" ? <SearchRows<User> token={session.token} path={`${api}/users`} revision={revision} accountFilter
+        label={t("Search name, email, job title or department")} columns={[
+          { label: t("Employee"), render: user => <a href={link("users", user.object_id)}>{user.display_name ?? user.object_id}</a> },
+          { label: t("Corporate email"), render: user => user.email ?? "—" },
+          { label: t("Department"), render: user => user.department ?? "—" },
+          { label: t("Job title"), render: user => user.job_title ?? "—" },
+          { label: t("Status"), render: user => <StatusBadge>{t(!user.synchronized ? "Absent from snapshot" : user.account_enabled == null ? "Account status unavailable" : user.account_enabled ? "Active" : "Inactive")}</StatusBadge> },
+        ]} />
         : <SearchRows<Group> token={session.token} path={`${api}/groups`} revision={revision}
-          label={t("Search groups")} render={group => <GroupRow group={group} />} />}
+          label={t("Search groups")} columns={[
+            { label: t("Group"), render: group => <a href={link("groups", group.object_id)}>{group.display_name ?? group.object_id}</a> },
+            { label: t("Description"), render: group => group.description ?? "—" },
+            { label: t("Direct members"), render: group => group.membership_count },
+            { label: t("Status"), render: group => <StatusBadge>{t(!group.synchronized ? "Absent from snapshot" : group.eligibility)}</StatusBadge> },
+          ]} />}
     </Panel>
   </Page>;
 }
 
-function SearchRows<T extends {object_id: string}>({ token, path, revision, label, render, members = false }: {
-  token: string; path: string; revision: number; label: string; render: (row: T) => React.ReactNode; members?: boolean;
+function SearchRows<T extends {object_id: string}>({ token, path, revision, label, render, columns, accountFilter, members = false }: {
+  token: string; path: string; revision: number; label: string; render?: (row: T) => React.ReactNode; columns?: { label: string; render: (row: T) => React.ReactNode }[]; accountFilter?: boolean; members?: boolean;
 }) {
   const [term, setTerm] = useState("");
+  const [account, setAccount] = useState("");
   const [cursors, setCursors] = useState<number[]>([]);
   const params = new URLSearchParams({query: term, limit: "25"});
+  if (account) params.set("account", account);
   if (cursors.length) params.set("after", String(cursors.at(-1)));
   const result = useQuery<Result<T> | { members: Result<T> }>(token, `${path}?${params}`, revision, true);
   return <>
@@ -106,12 +113,19 @@ function SearchRows<T extends {object_id: string}>({ token, path, revision, labe
       setTerm(String(new FormData(event.currentTarget).get("query") ?? "").trim());
     }}>
       <label>{label}<input name="query" type="search" maxLength={150} /></label>
+      {accountFilter && <label>{t("Account status")}<select value={account} onChange={event => {
+        setAccount(event.target.value); setCursors([]);
+      }}>
+        <option value="">{t("All statuses")}</option>
+        {["active", "disabled", "unknown"].map(value => <option key={value} value={value}>{t(value)}</option>)}
+      </select></label>}
       <button className="secondary-button">{t("Search")}</button>
     </form>
     <QueryState result={result}>{value => {
       const data = members && "members" in value ? value.members : value as Result<T>;
       return <>
-        {data.items.length ? <ul className="iam-list">{data.items.map(item => <li key={item.object_id}>{render(item)}</li>)}</ul>
+        {columns ? <DataTable label={label} rows={data.items} rowKey={item => item.object_id} columns={columns} /> :
+          data.items.length ? <ul className="iam-list">{data.items.map(item => <li key={item.object_id}>{render?.(item)}</li>)}</ul>
           : <p>{t("No records.")}</p>}
         <div className="iam-actions">
           <button className="secondary-button" disabled={!cursors.length}
@@ -153,15 +167,14 @@ function GroupRow({ group }: { group: Group }) {
   </div>;
 }
 
-function DirectoryDetails({ kind, session, objectId, revision, refresh }: {
-  kind: Kind; session: Session; objectId: string; revision: number; refresh: () => void;
+function DirectoryDetails({ kind, session, objectId, revision, refresh, close }: {
+  kind: Kind; session: Session; objectId: string; revision: number; refresh: () => void; close: () => void;
 }) {
   const [target, setTarget] = useState<{ user: User; group: Group; add: boolean }>();
   const [catalog, setCatalog] = useState(false);
   const details = useQuery<UserDetails | GroupDetails>(session.token, `${api}/${kind}/${objectId}`, revision, true);
   const canRequest = session.permissions.includes("entra:request_change");
-  return <Panel title={t(kind === "users" ? "User details and access" : "Group members")}>
-    <a href={kind === "users" ? "#entra/users" : "#entra/groups"}>{t("Close details")}</a>
+  return <Drawer title={t(kind === "users" ? "User details and access" : "Group members")} close={close}>
     <QueryState result={details}>{row => <>
       {row.pending.map(change => <p key={change.id}><Badge>{t("Pending change")}</Badge> #{change.id} · {provisioningStatus(change.status)}</p>)}
       {"groups" in row ? <>
@@ -201,7 +214,7 @@ function DirectoryDetails({ kind, session, objectId, revision, refresh }: {
     </>}</QueryState>
     {target && <MembershipProposal key={`${target.user.object_id}:${target.group.object_id}:${target.add}`}
       {...target} token={session.token} refresh={refresh} cancel={() => setTarget(undefined)} />}
-  </Panel>;
+  </Drawer>;
 }
 
 function MembershipProposal({ user, group, add, token, refresh, cancel }: {

@@ -1,3 +1,4 @@
+import { type Metrics } from "../dashboard/OperationsDashboard";
 import { t } from "../i18n";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { EntraReconciliation, type Selection } from "./EntraReconciliation";
@@ -73,6 +74,7 @@ export function EntraPage({ session }: { session: Session }) {
   const canReconcile = canLink && permissions.includes("entra:provision_local");
   const canCreate = permissions.includes("employees:create");
 
+  const operations = useQuery<Metrics>(token, "/v1/dashboard/operations", operation.revision);
   function toggle(user: User) {
     setSelected(current => current.some(item => item.object_id === user.object_id)
       ? current.filter(item => item.object_id !== user.object_id)
@@ -82,6 +84,7 @@ export function EntraPage({ session }: { session: Session }) {
   async function sync() {
     if (!window.confirm(t("Read Microsoft Graph and refresh the local Entra snapshot?"))) return;
     if (!await operation.mutate("/entra/sync", "POST")) operation.refresh();
+    window.dispatchEvent(new Event("identityops:sync-refresh"));
   }
 
   function mapping(item: User | Group, kind: "users" | "groups") {
@@ -106,8 +109,7 @@ export function EntraPage({ session }: { session: Session }) {
           {connection.latest_run && <p>{t("Latest run #")}{connection.latest_run.id} · {t(connection.latest_run.status)}</p>}
         </div>
         <div className="iam-actions">
-          {canSync && <button className="primary-button" disabled={operation.busy ||
-            ["disabled", "invalid_configuration", "migration_required", "sync_running"].includes(connection.state)}
+          {canSync && (["error", "ready"].includes(connection.state) || (connection.state === "connected" && (operations.data?.entra?.stale || operations.data?.entra?.health === "failed"))) && <button className="primary-button" disabled={operation.busy}
             onClick={() => void sync()}>{operation.busy ? t("Working…") : t("Sync from Microsoft Graph")}</button>}
           <button className="secondary-button" disabled={operation.busy} onClick={operation.refresh}>{t("Refresh")}</button>
         </div>

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
@@ -72,10 +72,15 @@ def one(db, model, tenant, object_id):
 
 
 @router.get("/users")
-def users(db: DB, config: Config, actor: Reader, query: Search = None, after: Cursor = None, limit: Limit = 25):
+def users(db: DB, config: Config, actor: Reader, query: Search = None, after: Cursor = None, limit: Limit = 25,
+          account: Literal["active", "disabled", "unknown"] | None = None):
     tenant = scope(db, config)
     statement = searched(select(EntraUser).where(EntraUser.tenant_id == tenant), query,
         (EntraUser.display_name, EntraUser.mail, EntraUser.principal_name, EntraUser.job_title, EntraUser.department))
+    if account:
+        statement = statement.where(EntraUser.account_enabled.is_(
+            {"active": True, "disabled": False, "unknown": None}[account]
+        ))
     return paged(db, statement, EntraUser, after, limit, user_row)
 
 
