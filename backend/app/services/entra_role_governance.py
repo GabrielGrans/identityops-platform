@@ -8,6 +8,7 @@ from sqlalchemy import select
 from backend.app.models.employee import Employee
 from backend.app.models.entra import EntraGroup, EntraMembership, EntraUser
 from backend.app.models.governance import AccessReview
+from backend.app.services.department_catalog import department_key
 from backend.app.services.entra_automation_tables import alerts, changes, policies
 from backend.app.services.entra_service import utcnow
 from backend.app.services.enterprise_governance import latest_snapshot
@@ -45,7 +46,7 @@ def refresh_alerts(db, tenant):
             for role in config.get("roles", []):
                 if role["job_title"] and role["job_title"].casefold() != (user.job_title or "").casefold():
                     continue
-                if role.get("entra_department") and role["entra_department"].casefold() != (user.department or "").casefold():
+                if role.get("entra_department") and department_key(role["entra_department"]) != department_key(user.department):
                     continue
                 if role["department_id"] is not None and (not employee or employee.department_id != role["department_id"]):
                     continue

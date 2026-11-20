@@ -113,7 +113,7 @@ jobs:
         run: |
           mkdir release
           docker save identityops-api:1.4.0 identityops-web:1.4.0 postgres:17 | gzip > release/identityops-images.tar.gz
-          cp infrastructure/docker/compose.release.yml docs/RELEASE.md docs/IAM.md docs/ENTRA_ID.md docs/ENTRA_AUTOMATION.md docs/UNIFIED_ENTRA_DIRECTORY.md docs/CERTIFICATION.md docs/DASHBOARD.md .env.example LICENSE release/
+          cp infrastructure/docker/compose.release.yml docs/RELEASE.md docs/IAM.md docs/ENTRA_ID.md docs/ENTRA_AUTOMATION.md docs/UNIFIED_ENTRA_DIRECTORY.md docs/IAM_OPERATIONS.md docs/CERTIFICATION.md docs/DASHBOARD.md .env.example LICENSE release/
           cd release
           sha256sum identityops-images.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@v4

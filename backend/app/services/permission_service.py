@@ -1,7 +1,7 @@
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from backend.app.core.authorization import require_delegation
+from backend.app.core.authorization import DIRECT_PROVISION, require_delegation
 from backend.app.models.associations import group_permissions
 from backend.app.models.group import Group
 from backend.app.models.permission import Permission
@@ -19,6 +19,8 @@ def get_permission(db: Session, permission_id: int):
 
 
 def create_permission(db: Session, data: dict, actor_id: int | None = None):
+    if data["code"] == DIRECT_PROVISION:
+        raise ValueError("Direct provisioning permission is managed by the platform seed")
     duplicate = db.scalar(
         select(Permission).where(
             or_(
@@ -62,6 +64,8 @@ def update_permission(
     data: dict,
     actor_id: int | None = None,
 ):
+    if DIRECT_PROVISION in (data["code"], permission.code):
+        raise ValueError("Direct provisioning permission is managed by the platform seed")
     duplicate = db.scalar(
         select(Permission).where(
             or_(

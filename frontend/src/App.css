@@ -1714,3 +1714,26 @@
   font-size: .78rem;
 }
 .directory-shell .iam-panel a { color: #ff998d; overflow-wrap: anywhere; }
+
+.operations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: .75rem;
+}
+.operations-tile {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: .55rem;
+  min-height: 105px;
+  padding: 1rem;
+  color: #f0f3f6;
+  background: #202730;
+  border: 1px solid #414d5b;
+  border-radius: .5rem;
+  text-align: left;
+  font: inherit;
+}
+button.operations-tile { cursor: pointer; }
+button.operations-tile:hover { background: #2b2223; border-color: #ed574a; }
+.operations-tile strong, .operations-tile dd { color: #ff998d; font-size: 1.55rem; font-weight: 700; }

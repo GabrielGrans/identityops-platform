@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import inspect, select, text
 
 from backend.app.api.routes.entra import Config, DB, Reader, tenant_scope
-from backend.app.core.authorization import effective_permissions, require_any_permission, require_permission
+from backend.app.core.authorization import can_direct_provision, effective_permissions, require_any_permission, require_permission
 from backend.app.models.employee import Employee
 from backend.app.services.audit_service import record_event
 from backend.app.services.entra_access_queue import audit, preview
@@ -111,7 +111,8 @@ def check(db, config, tenant, data):
 
 @router.post("/preview")
 def preview_change(data: Change, db: DB, config: Config, actor: Requester):
-    return check(db, config, scope(db, config), data)
+    result = check(db, config, scope(db, config), data)
+    return {**result, "direct_authorized": can_direct_provision(db, actor.id)}
 
 
 @router.post("/requests", status_code=201)
@@ -123,19 +124,28 @@ def create_request(data: ConfirmedChange, db: DB, config: Config, actor: Request
     if request["snapshot_id"] != data.expected_snapshot_id:
         raise HTTPException(409, "The snapshot changed; preview the request again.")
     lock_code(db, f"entra-request:{tenant}:{request['user_id']}:{request['group_id']}")
+    direct = can_direct_provision(db, actor.id)
+    if direct:
+        # Apply snapshot eligibility checks even when the caller uses the legacy employee selector.
+        check(db, config, tenant, Change(user_id=request["user_id"], group_id=data.group_id,
+                                         add=data.add, justification=data.justification))
     pending = db.execute(select(changes.c.request).where(changes.c.tenant == tenant,
         changes.c.user_object_id == request["user_id"], changes.c.group_object_id == request["group_id"],
-        changes.c.status.in_(("pending", "approved", "executing")), changes.c.expires_at > utcnow())).scalars()
+        changes.c.status.in_(("pending", "approved", "direct_authorized", "executing")), changes.c.expires_at > utcnow())).scalars()
     if any(item["group_id"] == request["group_id"] for item in pending):
         raise HTTPException(409, "An open request already exists for this membership.")
     now = utcnow()
     request["justification"] = data.justification.strip()
+    if direct:
+        request["direct_authorization"] = {"actor_id": actor.id, "reason": "platform_administrator_permission"}
     row = db.execute(changes.insert().values(tenant=tenant, employee_id=request["employee_id"], requester_id=actor.id,
         user_object_id=request["user_id"], group_object_id=request["group_id"],
-        status="pending", request=request, expires_at=now + timedelta(hours=24), next_attempt=now,
+        status="direct_authorized" if direct else "pending", request=request, expires_at=now + timedelta(hours=24), next_attempt=now,
         attempts=0).returning(changes)).mappings().one()
     audit(db, row, "requested", actor.id, operation="add" if data.add else "remove",
           expected_membership=request["expected"])
+    if direct:
+        audit(db, row, "direct_authorized", actor.id, reason="platform_administrator_permission")
     db.commit()
     return dict(row)
 

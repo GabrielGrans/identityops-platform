@@ -2,7 +2,7 @@ import { useState } from "react";
 import { t } from "../i18n";
 import { request } from "../services/api";
 import { Feedback, Panel, QueryState } from "./common";
-import { displayTime, useMutation, useQuery, type Session } from "./data";
+import { displayTime, provisioningStatus, useMutation, useQuery, type Session } from "./data";
 
 const endpoint = "/entra/automation";
 const errors: Record<string, string> = {
@@ -18,7 +18,7 @@ const errors: Record<string, string> = {
 interface Draft {
   employee_id: number; group_id: string; add: boolean; justification: string;
 }
-interface Preview { user_id: string; group_id: string; expected: boolean; snapshot_id: number }
+interface Preview { user_id: string; group_id: string; expected: boolean; snapshot_id: number; direct_authorized: boolean }
 interface Change {
   id: number; employee_id: number | null; user_object_id: string; error_code: string | null; requester_id: number; status: string; expires_at: string;
   request: Preview & Draft;
@@ -74,6 +74,7 @@ export function EntraChangeRequests({ session }: { session: Session }) {
       <p>{t(proposal.draft.add ? "Add membership" : "Remove membership")} · {t("Employee ID")} #{proposal.draft.employee_id}</p>
       <p>{t("Entra group object ID")}: {proposal.preview.group_id} · {t("Snapshot ID")} #{proposal.preview.snapshot_id}</p>
       <p>{t("Membership in snapshot")}: {t(proposal.preview.expected ? "Present" : "Absent")}</p>
+      {proposal.preview.direct_authorized && <p>{t("Authorized administrator changes enter the execution queue directly.")}</p>}
       <button className="primary-button" disabled={mutation.busy} onClick={async () => {
         if (await mutation.mutate(`${endpoint}/requests`, "POST", {
           ...proposal.draft, expected_snapshot_id: proposal.preview.snapshot_id,
@@ -84,7 +85,7 @@ export function EntraChangeRequests({ session }: { session: Session }) {
       {items.length === 0 && <p>{t("No records.")}</p>}
       <ul className="iam-list">{items.map(item => <li key={item.id}>
         <div>
-          <strong>#{item.id} · {t(item.status)} · {t(item.request.add ? "Add membership" : "Remove membership")}</strong>
+          <strong>#{item.id} · {provisioningStatus(item.status)} · {t(item.request.add ? "Add membership" : "Remove membership")}</strong>
           <p>{item.employee_id ? `${t("Employee ID")} #${item.employee_id}` :
             <a href={`#entra/users/${item.user_object_id}`}>{item.user_object_id}</a>} · {item.request.group_id}</p>
           {item.error_code && <p role="status">{t(errors[item.error_code] ?? item.error_code)}</p>}

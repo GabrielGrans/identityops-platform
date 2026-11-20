@@ -4,7 +4,7 @@ import EmployeesPage from "../EmployeesPage";
 import { request } from "../services/api";
 import { CatalogPage } from "./CatalogPage";
 import { Feedback, Page, Panel, QueryState } from "./common";
-import { useMutation, useQuery, type Session } from "./data";
+import { provisioningStatus, useMutation, useQuery, type Session } from "./data";
 
 type Kind = "users" | "groups";
 type User = {
@@ -48,7 +48,9 @@ export function DirectoryWorkspace({ kind, session }: { kind: Kind; session: Ses
   const canReadEntra = session.permissions.includes("entra:read");
   const canReadLocal = session.permissions.includes(kind === "users" ? "employees:read" : "groups:read");
   const status = useQuery<{ state: string }>(session.token, canReadEntra ? "/entra/status" : null);
-  const [view, setView] = useState<"entra" | "local">();
+  const [view, setView] = useState<"entra" | "local" | undefined>(() =>
+    location.hash === `#local/${kind}` && canReadLocal ? "local" :
+    location.hash === `#entra/${kind}` && canReadEntra ? "entra" : undefined);
   const [objectId, setObjectId] = useState(() => selectedObject(kind));
   useEffect(() => {
     const changed = () => {
@@ -161,7 +163,7 @@ function DirectoryDetails({ kind, session, objectId, revision, refresh }: {
   return <Panel title={t(kind === "users" ? "User details and access" : "Group members")}>
     <a href={kind === "users" ? "#entra/users" : "#entra/groups"}>{t("Close details")}</a>
     <QueryState result={details}>{row => <>
-      {row.pending.map(change => <p key={change.id}><Badge>{t("Pending change")}</Badge> #{change.id} · {t(change.status)}</p>)}
+      {row.pending.map(change => <p key={change.id}><Badge>{t("Pending change")}</Badge> #{change.id} · {provisioningStatus(change.status)}</p>)}
       {"groups" in row ? <>
         <UserRow user={row} />
         <p>{t("Profile source")}: {t(row.profile_authority === "external" ? "Synchronized from on-premises" :
@@ -206,7 +208,7 @@ function MembershipProposal({ user, group, add, token, refresh, cancel }: {
   user: User; group: Group; add: boolean; token: string; refresh: () => void; cancel: () => void;
 }) {
   const mutation = useMutation(token);
-  const [preview, setPreview] = useState<{ snapshot_id: number; expected: boolean }>();
+  const [preview, setPreview] = useState<{ snapshot_id: number; expected: boolean; direct_authorized: boolean }>();
   const [justification, setJustification] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -230,6 +232,7 @@ function MembershipProposal({ user, group, add, token, refresh, cancel }: {
     {error && <p role="alert">{error}</p>}
     <Feedback message={mutation.message} />
     {preview && <div>
+      {preview.direct_authorized && <p>{t("Authorized administrator changes enter the execution queue directly.")}</p>}
       <p>{t("Membership in snapshot")}: {t(preview.expected ? "Present" : "Absent")} · {t("Snapshot ID")} #{preview.snapshot_id}</p>
       <button className="primary-button" disabled={mutation.busy} onClick={async () => {
         if (await mutation.mutate(`${governance}/requests`, "POST", { ...draft, expected_snapshot_id: preview.snapshot_id })) {

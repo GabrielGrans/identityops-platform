@@ -1,3 +1,4 @@
+import { CertificationMetrics, type Certification } from "./CertificationMetrics";
 import { t } from "../i18n";
 import { useState, type FormEvent } from "react";
 import { Feedback, Page, Pagination, Panel, QueryState } from "./common";
@@ -54,6 +55,7 @@ function reviewerIds(value: FormDataEntryValue | null) {
 export function CertificationPage({ session }: { session: Session }) {
   const { token, permissions } = session;
   const canManage = permissions.includes("certifications:manage");
+  const progress = useQuery<{ certification?: Certification }>(token, canManage ? "/v1/dashboard/operations" : null);
   const operation = useMutation(token);
   const cursor = useCursor();
   const [status, setStatus] = useState("");
@@ -79,7 +81,15 @@ export function CertificationPage({ session }: { session: Session }) {
     }
   }
 
-  return <Page title={t("Access Certification")}>
+  return <Page title={t("Access Certification Campaigns")}>
+    <p title={t("Campaigns periodically review employee permissions and group memberships.")}>
+      {t("Campaigns periodically review employee permissions and group memberships.")}
+    </p>
+    {canManage && <Panel title={t("Certification progress")}>
+      <QueryState result={progress}>{data => data.certification
+        ? <CertificationMetrics result={data.certification} /> : <p>{t("Apply the database migrations to make campaign data available.")}</p>}
+      </QueryState>
+    </Panel>}
     <div className="iam-actions">
       <button className="secondary-button" onClick={operation.refresh} disabled={operation.busy}>{t("Refresh")}</button>
     </div>

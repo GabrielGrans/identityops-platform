@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from backend.app.core.authorization import effective_permissions
+from backend.app.core.authorization import can_direct_provision, effective_permissions
 from backend.app.models.employee import Employee
 from backend.app.models.entra import EntraGroup, EntraMembership, EntraUser
 from backend.app.services.audit_service import record_event
@@ -82,7 +82,7 @@ def execute_due(db, config, tenant, make_client):
     now = utcnow()
     expired = db.execute(select(changes).where(
         changes.c.tenant == tenant, changes.c.expires_at <= now,
-        changes.c.status.in_(("pending", "approved", "executing")),
+        changes.c.status.in_(("pending", "approved", "direct_authorized", "executing")),
     ).with_for_update(skip_locked=True)).mappings().all()
     for item in expired:
         db.execute(changes.update().where(changes.c.id == item.id).values(status="expired"))
@@ -91,7 +91,7 @@ def execute_due(db, config, tenant, make_client):
     if not config.ENTRA_WRITE_ENABLED:
         return
     row = db.execute(select(changes).where(
-        changes.c.tenant == tenant, changes.c.status.in_(("approved", "executing")),
+        changes.c.tenant == tenant, changes.c.status.in_(("approved", "direct_authorized", "executing")),
         changes.c.next_attempt <= now, changes.c.expires_at > now,
     ).order_by(changes.c.id).limit(1).with_for_update(skip_locked=True)).mappings().one_or_none()
     if row is None:
@@ -100,14 +100,22 @@ def execute_due(db, config, tenant, make_client):
     attempts = row.attempts + 1
 
     try:
-        actors = {row.requester_id: "entra:request_change", row.reviewer_id: "entra:approve_change"}
+        direct = request.get("direct_authorization")
+        actors = {row.requester_id: "entra:request_change"}
+        if direct:
+            if direct.get("actor_id") != row.requester_id or row.reviewer_id is not None or not can_direct_provision(db, row.requester_id):
+                raise GraphError("write_unsupported")
+        else:
+            if row.reviewer_id is None or row.reviewer_id == row.requester_id:
+                raise GraphError("write_unsupported")
+            actors[row.reviewer_id] = "entra:approve_change"
         for actor_id, permission in actors.items():
             employee = db.get(Employee, actor_id)
             if not employee or employee.status != "active" or permission not in set(db.scalars(effective_permissions(actor_id))):
                 raise GraphError("write_unsupported")
         target = preview(db, config, tenant, row.employee_id, request["group_id"], request["add"],
-                         request["user_id"] if request.get("remote_subject") else None)
-        if target["employee_id"] == row.reviewer_id:
+                         request["user_id"] if direct or request.get("remote_subject") else None)
+        if not direct and target["employee_id"] == row.reviewer_id:
             raise GraphError("write_conflict")
         if target["user_id"] != request["user_id"]:
             raise GraphError("write_conflict")

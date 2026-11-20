@@ -81,3 +81,11 @@ export const PAGE_SIZE = 25;
 export function employeeLabel(employee: Employee) {
   return `${employee.first_name} ${employee.last_name} (${employee.employee_number})`;
 }
+
+export function provisioningStatus(status: string) {
+  const labels: Record<string, string> = {
+    direct_authorized: "Queued (administrator)", approved: "Queued",
+    executing: "Processing", succeeded: "Completed", failed: "Failed",
+  };
+  return t(labels[status] ?? status);
+}

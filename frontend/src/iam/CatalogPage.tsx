@@ -1,3 +1,4 @@
+import { DepartmentOperations } from "./DepartmentOperations";
 import { t } from "../i18n";
 import { useState, type FormEvent } from "react";
 import { type Employee } from "../services/api";
@@ -53,6 +54,7 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
 
   return <Page title={t(titles[catalog])}>
     <Feedback message={mutation.message} />
+    {catalog === "departments" && <DepartmentOperations token={token} revision={mutation.revision} />}
     {allowEdit && <button className="primary-button" onClick={() => openForm("new")}>{catalog === "groups" ? t("New Group") : t("Create record")}</button>}
     {edit && <Panel title={item ? t("Edit {p0}", { p0: String(item.name) }) : t("New record")}>
       <form key={item?.id ?? "new"} className="iam-form" onSubmit={save}>

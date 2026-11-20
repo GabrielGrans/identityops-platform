@@ -2,7 +2,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.app.core.authorization import group_codes, require_delegation
+from backend.app.core.authorization import DIRECT_PROVISION, group_codes, require_delegation
 from backend.app.models.governance import AccessRequest, AccessReview
 from backend.app.models.group import Group
 from backend.app.models.permission import Permission
@@ -47,6 +47,8 @@ def create_group(db: Session, data: dict, actor_id: int | None = None, *, permis
             permission = db.get(Permission, permission_id, with_for_update=True, populate_existing=True)
             if permission is None or not permission.is_active:
                 raise ValueError("Permission not found or inactive")
+            if permission.code == DIRECT_PROVISION:
+                raise ValueError("Direct provisioning permission is managed by the platform seed")
             permissions.append(permission)
         require_delegation(db, actor_id, (permission.code for permission in permissions), "permissions:manage")
     group = Group(**data, permissions=permissions)
@@ -122,6 +124,8 @@ def assign_permission(
     if not permission.is_active:
         raise ValueError("Cannot assign inactive permission")
 
+    if permission.code == DIRECT_PROVISION:
+        raise ValueError("Direct provisioning permission is managed by the platform seed")
     require_delegation(db, actor_id, (permission.code,), "permissions:manage")
     if permission not in group.permissions:
         group.permissions.append(permission)

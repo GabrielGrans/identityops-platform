@@ -57,3 +57,13 @@ def require_delegation(db: Session, actor_id: int | None, codes, *required: str)
 
 def group_codes(groups):
     return {permission.code for group in groups for permission in group.permissions if permission.is_active}
+
+
+DIRECT_PROVISION = "entra:direct_provision"
+
+
+def can_direct_provision(db: Session, employee_id: int) -> bool:
+    """Require the active local platform role and its explicit permission together."""
+    return db.scalar(effective_permissions(employee_id).where(
+        Group.code == "IT_ADMINS", Group.name == "IT Administrators", Permission.code == DIRECT_PROVISION,
+    )) is not None

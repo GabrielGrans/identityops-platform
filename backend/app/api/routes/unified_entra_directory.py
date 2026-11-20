@@ -17,7 +17,7 @@ router = APIRouter(prefix="/entra/directory", tags=["Unified Entra directory"])
 Cursor = Annotated[int | None, Query(gt=0)]
 Search = Annotated[str | None, Query(max_length=150)]
 Limit = Annotated[int, Query(ge=1, le=100)]
-OPEN = ("pending", "approved", "executing")
+OPEN = ("pending", "approved", "direct_authorized", "executing")
 
 
 def searched(statement, query, fields):

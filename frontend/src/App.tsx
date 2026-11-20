@@ -17,6 +17,7 @@ import {
 import "./App.css";
 import { Brand, BrandCredit, BrandEmblem } from "./Brand";
 import LoginPage from "./LoginPage";
+import { OperationsDashboard } from "./dashboard/OperationsDashboard";
 import DashboardPage from "./dashboard/DashboardPage";
 import { t, useLanguage, useLocalizedValidation } from "./i18n";
 import { SettingsPage } from "./iam/SettingsPage";
@@ -34,7 +35,7 @@ const navigation = [
   { label: "Access Requests", icon: LockKeyhole, section: "ACCESS MANAGEMENT" },
   { label: "Identity Lifecycle", icon: UserPlus, section: "GOVERNANCE" },
   { label: "Access Reviews", icon: CheckCircle2, section: "GOVERNANCE" },
-  { label: "Access Certification", icon: ShieldCheck, section: "GOVERNANCE" },
+  { label: "Access Certification", displayLabel: "Access Certification Campaigns", icon: ShieldCheck, section: "GOVERNANCE" },
   { label: "Entra role governance", icon: ShieldCheck, section: "GOVERNANCE" },
   { label: "Notifications", icon: Bell, section: "GOVERNANCE" },
   { label: "Governance findings", icon: ShieldCheck, section: "GOVERNANCE" },
@@ -152,13 +153,13 @@ function App() {
                       <button
                         className={`nav-item ${activePage === item.label ? "active" : ""}`}
                         key={item.label}
-                        aria-label={t(item.label)}
+                        aria-label={t("displayLabel" in item && item.displayLabel ? item.displayLabel : item.label)}
                         aria-current={activePage === item.label ? "page" : undefined}
-                        title={t(item.label)}
+                        title={t("displayLabel" in item && item.displayLabel ? item.displayLabel : item.label)}
                         onClick={() => { if (location.hash) history.replaceState(null, "", location.pathname + location.search); setActivePage(item.label); }}
                       >
                         <Icon size={18} strokeWidth={1.8} />
-                        <span>{t(item.label)}</span>
+                        <span>{t("displayLabel" in item && item.displayLabel ? item.displayLabel : item.label)}</span>
                       </button>
                     );
                   })}
@@ -200,7 +201,7 @@ function App() {
           <div className="breadcrumb">
             <span>IdentityOps</span>
             <span className="breadcrumb-separator">/</span>
-            <strong>{t(activePage)}</strong>
+            <strong>{t(activePage === "Access Certification" ? "Access Certification Campaigns" : activePage)}</strong>
           </div>
 
           <div className="topbar-actions">
@@ -210,8 +211,12 @@ function App() {
 
         <div className="page-content">
           {isDashboard ? (
-            <div className="iam-page"><DashboardPage key={language} token={token} navigate={setActivePage} />
-              <RiskIndicators token={token} onOpen={() => setActivePage("Governance findings")} /></div>
+            <OperationsDashboard key={language} token={token} navigate={(page, source) => {
+              const directory = page === "Employees" ? "users" : page === "Access Groups" ? "groups" : null;
+              history.replaceState(null, "", location.pathname + location.search + (directory && source ? `#${source}/${directory}` : ""));
+              setActivePage(page);
+            }}><DashboardPage token={token} navigate={setActivePage} />
+              <RiskIndicators token={token} onOpen={() => setActivePage("Governance findings")} /></OperationsDashboard>
           ) : activePage === "Settings" ? (
             <SettingsPage />
           ) : (
