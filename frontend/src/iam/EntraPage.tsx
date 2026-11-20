@@ -1,9 +1,9 @@
-import { type Metrics } from "../dashboard/OperationsDashboard";
 import { t } from "../i18n";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { EntraReconciliation, type Selection } from "./EntraReconciliation";
 import { CollapsiblePanel, Feedback, Page, Pagination, Panel, QueryState } from "./common";
-import { displayTime, PAGE_SIZE, useCursor, useMutation, useQuery, type Session } from "./data";
+import { request } from "../services/api";
+import { displayTime, refreshLocalData, PAGE_SIZE, useCursor, useMutation, useQuery, type Session } from "./data";
 
 type Run = {
   id: number;
@@ -74,7 +74,20 @@ export function EntraPage({ session }: { session: Session }) {
   const canReconcile = canLink && permissions.includes("entra:provision_local");
   const canCreate = permissions.includes("employees:create");
 
-  const operations = useQuery<Metrics>(token, "/v1/dashboard/operations", operation.revision);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ text: string; error: boolean }>();
+  const historyCursor = useCursor();
+  const history = useQuery<Run[]>(token, status.data && ["ready", "connected", "error", "sync_running"].includes(status.data.state)
+    ? `/entra/sync-runs?limit=${PAGE_SIZE}${historyCursor.query}` : null, operation.revision);
+  const refresh = operation.refresh;
+  const running = status.data?.state === "sync_running";
+  useEffect(() => {
+    if (!running && !syncBusy) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [running, syncBusy, refresh]);
   function toggle(user: User) {
     setSelected(current => current.some(item => item.object_id === user.object_id)
       ? current.filter(item => item.object_id !== user.object_id)
@@ -83,8 +96,19 @@ export function EntraPage({ session }: { session: Session }) {
 
   async function sync() {
     if (!window.confirm(t("Read Microsoft Graph and refresh the local Entra snapshot?"))) return;
-    if (!await operation.mutate("/entra/sync", "POST")) operation.refresh();
-    window.dispatchEvent(new Event("identityops:sync-refresh"));
+    setSyncBusy(true);
+    setSyncMessage(undefined);
+    try {
+      const run = await request<Run>("/entra/sync", { method: "POST" }, token);
+      if (run.status !== "completed") throw new Error(t("Synchronization could not complete."));
+      historyCursor.reset();
+      setSyncMessage({ text: t("Synchronization completed."), error: false });
+    } catch (error) {
+      setSyncMessage({ text: error instanceof Error ? error.message : t("Synchronization could not complete."), error: true });
+    } finally {
+      setSyncBusy(false);
+      refreshLocalData();
+    }
   }
 
   function mapping(item: User | Group, kind: "users" | "groups") {
@@ -95,6 +119,7 @@ export function EntraPage({ session }: { session: Session }) {
 
   return <Page title="Microsoft Entra ID">
     <Feedback message={operation.message} />
+    <Feedback message={syncMessage} />
     <Panel title={t("Connection")}>
       <QueryState result={status}>{(connection) => <>
         <div>
@@ -109,12 +134,26 @@ export function EntraPage({ session }: { session: Session }) {
           {connection.latest_run && <p>{t("Latest run #")}{connection.latest_run.id} · {t(connection.latest_run.status)}</p>}
         </div>
         <div className="iam-actions">
-          {canSync && (["error", "ready"].includes(connection.state) || (connection.state === "connected" && (operations.data?.entra?.stale || operations.data?.entra?.health === "failed"))) && <button className="primary-button" disabled={operation.busy}
-            onClick={() => void sync()}>{operation.busy ? t("Working…") : t("Sync from Microsoft Graph")}</button>}
-          <button className="secondary-button" disabled={operation.busy} onClick={operation.refresh}>{t("Refresh")}</button>
+          {canSync && ["ready", "connected", "error", "sync_running"].includes(connection.state) &&
+            <button className="primary-button" disabled={operation.busy || syncBusy || running}
+              onClick={() => void sync()}>{syncBusy || running ? t("Synchronizing") : t("Sync now")}</button>}
+          <button className="secondary-button" onClick={refreshLocalData}>{t("Refresh local data")}</button>
         </div>
       </>}</QueryState>
     </Panel>
+    {status.data && ["ready", "connected", "error", "sync_running"].includes(status.data.state) &&
+      <CollapsiblePanel title={t("Synchronization history")}>
+        <QueryState result={history}>{runs => <>
+          {runs.length ? <ul className="iam-list">{runs.map(run => <li key={run.id}>
+            <strong>#{run.id} · {t(run.status)}</strong>
+            <time dateTime={run.started_at}>{displayTime(run.started_at)}</time>
+            {run.finished_at && <time dateTime={run.finished_at}>{displayTime(run.finished_at)}</time>}
+            {run.users_count !== null && <span>{t("Users")} {run.users_count} · {t("Groups")} {run.groups_count} · {t("Direct Entra memberships")} {run.memberships_count}</span>}
+            {run.error_code && <span>{t(errors[run.error_code] ?? "Synchronization could not complete.")}</span>}
+          </li>)}</ul> : <p>{t("No records.")}</p>}
+          <Pagination cursor={historyCursor} rows={runs} />
+        </>}</QueryState>
+      </CollapsiblePanel>}
     {status.data && !["disabled", "migration_required"].includes(status.data.state) &&
       (status.data.state !== "invalid_configuration" || status.data.latest_run) && <>
         {user && <UserAccess key={user.object_id} user={user} token={token} revision={operation.revision} onClose={() => setUser(undefined)} />}

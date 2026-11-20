@@ -55,8 +55,8 @@ function reviewerIds(value: FormDataEntryValue | null) {
 export function CertificationPage({ session }: { session: Session }) {
   const { token, permissions } = session;
   const canManage = permissions.includes("certifications:manage");
-  const progress = useQuery<{ certification?: Certification }>(token, canManage ? "/v1/dashboard/operations" : null);
   const operation = useMutation(token);
+  const progress = useQuery<{ certification?: Certification }>(token, canManage ? "/v1/dashboard/operations" : null, operation.revision);
   const cursor = useCursor();
   const [creating, setCreating] = useState(false);
   const [status, setStatus] = useState("");

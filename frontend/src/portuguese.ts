@@ -1,4 +1,8 @@
 export const portuguese: Record<string, string> = {
+  "Refresh indicators": "Atualizar indicadores",
+  "Refresh local data": "Atualizar dados locais",
+  "Sync now": "Sincronizar agora",
+  "Synchronization completed.": "Sincronização concluída.",
   "Date": "Data",
   "View policy": "Ver política",
   "unsupported": "sem suporte",

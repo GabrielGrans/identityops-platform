@@ -9,6 +9,7 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
+  RefreshCw,
   LogOut,
   Settings,
   ShieldCheck,
@@ -21,7 +22,7 @@ import "./App.css";
 import "./enterprise.css";
 import { Brand, BrandCredit, BrandEmblem } from "./Brand";
 import LoginPage from "./LoginPage";
-import { useQuery } from "./iam/data";
+import { refreshLocalData, useQuery } from "./iam/data";
 import { OperationsDashboard, type Metrics } from "./dashboard/OperationsDashboard";
 import { AnalyticsPage } from "./dashboard/AnalyticsPage";
 import { t, useLanguage, useLocalizedValidation } from "./i18n";
@@ -71,10 +72,8 @@ function App() {
 
   useEffect(() => {
     const refresh = () => setSyncRevision(value => value + 1);
-    window.addEventListener("identityops:sync-refresh", refresh);
     window.addEventListener("focus", refresh);
     return () => {
-      window.removeEventListener("identityops:sync-refresh", refresh);
       window.removeEventListener("focus", refresh);
     };
   }, []);
@@ -238,6 +237,10 @@ function App() {
           </div>
 
           <div className="topbar-actions">
+            {activePage !== "Settings" && <button type="button" className="icon-button"
+              title={t(isDashboard || activePage === "Analytics" ? "Refresh indicators" : "Refresh local data")}
+              aria-label={t(isDashboard || activePage === "Analytics" ? "Refresh indicators" : "Refresh local data")}
+              onClick={refreshLocalData}><RefreshCw size={17} aria-hidden="true" /></button>}
             <div className="topbar-avatar">{initials}</div>
           </div>
         </header>
