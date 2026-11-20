@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Optional draft release tag to receive the verified Docker package'
+        description: 'Optional draft release tag to receive the verified Docker and Windows packages'
         required: false
         type: string
 
@@ -136,7 +136,11 @@ jobs:
         with:
           name: identityops-1.4.0
           path: release
-      - name: Attach package to the matching draft
+      - uses: actions/download-artifact@v4
+        with:
+          name: identityops-1.4.0-windows-nsis
+          path: desktop
+      - name: Attach verified packages to the matching draft
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -144,9 +148,18 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" == v1.4.0 ]]
+          tag_sha=$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --jq '.object | select(.type == "tag") | .sha')
+          gh api "repos/$GH_REPO/git/tags/$tag_sha" |
+            jq -e --arg sha "$GITHUB_SHA" '.object.type == "commit" and .object.sha == $sha'
           gh release view "$RELEASE_TAG" --json isDraft,targetCommitish |
             jq -e --arg sha "$GITHUB_SHA" '.isDraft and .targetCommitish == $sha'
           (cd release && sha256sum -c SHA256SUMS)
           filename="identityops-${RELEASE_TAG#v}-linux-amd64.tar"
           tar -cf "$filename" -C release .
-          gh release upload "$RELEASE_TAG" "$filename"
+          installer="IdentityOps_${RELEASE_TAG#v}_x64-setup.exe"
+          test -s "desktop/$installer"
+          file "desktop/$installer" | grep -E 'PE32.*Nullsoft Installer'
+          mv "desktop/$installer" "$installer"
+          sha256sum "$installer" "$filename" | tee SHA256SUMS
+          sha256sum -c SHA256SUMS
+          gh release upload "$RELEASE_TAG" "$installer" "$filename" SHA256SUMS
