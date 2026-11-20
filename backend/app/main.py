@@ -15,6 +15,7 @@ from backend.app.models import (
 )
 
 from backend.app.api.routes.auth import router as auth_router
+from backend.app.api.routes.servicenow import router as servicenow_router
 from backend.app.api.routes.certification import router as certification_router
 from backend.app.api.routes.dashboard import router as dashboard_router
 from backend.app.api.routes.entra import router as entra_router
@@ -54,7 +55,7 @@ app = FastAPI(
     description=(
         "Enterprise Identity and Access Management Platform"
     ),
-    version="1.4.1",
+    version="1.5.0",
     lifespan=lifespan,
 )
 
@@ -73,6 +74,7 @@ app.add_middleware(
 
 
 app.include_router(auth_router)
+app.include_router(servicenow_router)
 app.include_router(departments_router)
 app.include_router(employees_router)
 app.include_router(groups_router)
@@ -93,7 +95,7 @@ def root():
     return {
         "application": "IdentityOps",
         "message": "IdentityOps API is running",
-        "version": "1.4.1",
+        "version": "1.5.0",
     }
 
 

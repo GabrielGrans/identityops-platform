@@ -125,31 +125,36 @@ def create_request(data: ConfirmedChange, db: DB, config: Config, actor: Request
     request = check(db, config, tenant, data)
     if request["snapshot_id"] != data.expected_snapshot_id:
         raise HTTPException(409, "The snapshot changed; preview the request again.")
-    lock_code(db, f"entra-request:{tenant}:{request['user_id']}:{request['group_id']}")
     direct = can_direct_provision(db, actor.id)
     if direct:
         # Apply snapshot eligibility checks even when the caller uses the legacy employee selector.
         check(db, config, tenant, Change(user_id=request["user_id"], group_id=data.group_id,
                                          add=data.add, justification=data.justification))
+    row = enqueue(db, tenant, actor.id, request, data.justification, direct)
+    db.commit()
+    return dict(row)
+
+
+def enqueue(db, tenant, actor_id, request, justification, direct=False):
+    lock_code(db, f"entra-request:{tenant}:{request['user_id']}:{request['group_id']}")
     pending = db.execute(select(changes.c.request).where(changes.c.tenant == tenant,
         changes.c.user_object_id == request["user_id"], changes.c.group_object_id == request["group_id"],
         changes.c.status.in_(("pending", "approved", "direct_authorized", "executing")), changes.c.expires_at > utcnow())).scalars()
     if any(item["group_id"] == request["group_id"] for item in pending):
         raise HTTPException(409, "An open request already exists for this membership.")
     now = utcnow()
-    request["justification"] = data.justification.strip()
+    request["justification"] = justification.strip()
     if direct:
-        request["direct_authorization"] = {"actor_id": actor.id, "reason": "platform_administrator_permission"}
-    row = db.execute(changes.insert().values(tenant=tenant, employee_id=request["employee_id"], requester_id=actor.id,
+        request["direct_authorization"] = {"actor_id": actor_id, "reason": "platform_administrator_permission"}
+    row = db.execute(changes.insert().values(tenant=tenant, employee_id=request["employee_id"], requester_id=actor_id,
         user_object_id=request["user_id"], group_object_id=request["group_id"],
         status="direct_authorized" if direct else "pending", request=request, expires_at=now + timedelta(hours=24), next_attempt=now,
         attempts=0).returning(changes)).mappings().one()
-    audit(db, row, "requested", actor.id, operation="add" if data.add else "remove",
+    audit(db, row, "requested", actor_id, operation="add" if request["add"] else "remove",
           expected_membership=request["expected"])
     if direct:
-        audit(db, row, "direct_authorized", actor.id, reason="platform_administrator_permission")
-    db.commit()
-    return dict(row)
+        audit(db, row, "direct_authorized", actor_id, reason="platform_administrator_permission")
+    return row
 
 
 AnyRequestOperator = Annotated[Employee, Depends(
@@ -171,7 +176,8 @@ def list_requests(db: DB, config: Config, actor: AnyRequestOperator,
                   status: str | None = Query(None, max_length=25)):
     tenant = scope(db, config)
     statement = visible_requests(db, actor, tenant)
-    fields = [cast(changes.c.id, String), changes.c.user_object_id, changes.c.group_object_id]
+    fields = [cast(changes.c.id, String), changes.c.user_object_id, changes.c.group_object_id,
+              changes.c.request["servicenow"]["ritm"].as_string()]
     if "entra:read" in set(db.scalars(effective_permissions(actor.id))):
         statement = statement.add_columns(EntraUser.display_name.label("employee_name"),
                                           EntraGroup.display_name.label("group_name")).outerjoin(

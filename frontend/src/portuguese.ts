@@ -1,4 +1,13 @@
 export const portuguese: Record<string, string> = {
+  "ServiceNow simulations": "Simulações do ServiceNow",
+  "Simulated": "Simulado",
+  "Simulation completed without changing Microsoft Entra ID.": "Simulação concluída sem alterar o Microsoft Entra ID.",
+  "Requested by in ServiceNow": "Solicitante no ServiceNow",
+  "ServiceNow beneficiary": "Beneficiário no ServiceNow",
+  "Approved by in ServiceNow": "Aprovador no ServiceNow",
+  "Integration identity": "Identidade de integração",
+  "servicenow_unavailable": "Evidência de aprovação do ServiceNow temporariamente indisponível.",
+  "servicenow_approval_changed": "A aprovação no ServiceNow não existe ou perdeu a validade.",
   "Refresh indicators": "Atualizar indicadores",
   "Refresh local data": "Atualizar dados locais",
   "Sync now": "Sincronizar agora",

@@ -13,6 +13,24 @@ from backend.app.services.enterprise_governance import latest_snapshot, policy_t
 from backend.app.services.graph_client import GraphError
 from backend.app.services.provisioning_service import snapshot_is_recent
 
+from backend.app.services.servicenow_client import ServiceNowError, fetch_approval, instance
+
+
+def recheck_servicenow(config, row, actor, permissions):
+    trusted = row.request["servicenow"]
+    if (not config.SERVICENOW_ENABLED or config.SERVICENOW_SIMULATION
+            or actor.id != config.SERVICENOW_REQUESTER_ID or actor.password_hash is not None
+            or permissions != {"entra:request_change"}):
+        raise GraphError("servicenow_approval_changed")
+    try:
+        if instance(config) != trusted["instance"]:
+            raise GraphError("servicenow_approval_changed")
+        approval = fetch_approval(config, trusted["sys_id"])
+    except ServiceNowError as error:
+        raise GraphError("servicenow_unavailable" if error.status == 502 else "servicenow_approval_changed") from None
+    if approval.model_dump(mode="json") | {"instance": trusted["instance"]} != trusted:
+        raise GraphError("servicenow_approval_changed")
+
 
 def permitted_group(db, config, tenant, group_id):
     def ids(value):
@@ -111,8 +129,11 @@ def execute_due(db, config, tenant, make_client):
             actors[row.reviewer_id] = "entra:approve_change"
         for actor_id, permission in actors.items():
             employee = db.get(Employee, actor_id)
-            if not employee or employee.status != "active" or permission not in set(db.scalars(effective_permissions(actor_id))):
+            permissions = set(db.scalars(effective_permissions(actor_id)))
+            if not employee or employee.status != "active" or permission not in permissions:
                 raise GraphError("write_unsupported")
+            if actor_id == row.requester_id and request.get("servicenow"):
+                recheck_servicenow(config, row, employee, permissions)
         target = preview(db, config, tenant, row.employee_id, request["group_id"], request["add"],
                          request["user_id"] if direct or request.get("remote_subject") else None)
         if not direct and target["employee_id"] == row.reviewer_id:
@@ -138,7 +159,7 @@ def execute_due(db, config, tenant, make_client):
                                         state.c.next_run > utcnow()).values(next_run=utcnow()))
         audit(db, row, "succeeded", verified_membership=request["add"])
     except GraphError as error:
-        retriable = error.code in {"graph_throttled", "graph_unavailable", "graph_unauthorized"} and attempts < 5
+        retriable = error.code in {"graph_throttled", "graph_unavailable", "graph_unauthorized", "servicenow_unavailable"} and attempts < 5
         status = row.status if retriable else ("conflict" if error.code == "write_conflict" else "failed")
         if retriable:
             # Once a remote mutation started, retain recovery state across retries.

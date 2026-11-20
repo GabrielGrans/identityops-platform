@@ -23,6 +23,8 @@ MAX_MEMBERSHIPS = 25_000
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 
 MESSAGES = {
+    "servicenow_unavailable": "ServiceNow approval evidence is temporarily unavailable.",
+    "servicenow_approval_changed": "ServiceNow approval is missing or no longer valid.",
     "delta_expired": "The directory checkpoint expired.",
     "write_unsupported": "This group does not support controlled provisioning.",
     "write_conflict": "The current membership differs from the approved preview.",
