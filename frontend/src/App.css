@@ -1737,3 +1737,34 @@
 button.operations-tile { cursor: pointer; }
 button.operations-tile:hover { background: #2b2223; border-color: #ed574a; }
 .operations-tile strong, .operations-tile dd { color: #ff998d; font-size: 1.55rem; font-weight: 700; }
+
+.executive-subtitle { margin: 0 0 .35rem; color: #aab5c1; }
+.executive-status { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; color: #b8c3ce; }
+.executive-status strong { color: #eff2f5; }
+.executive-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; }
+.executive-kpi {
+  display: grid; align-content: space-between; gap: .6rem; min-height: 108px;
+  padding: 1rem; border: 0; border-radius: .55rem; background: #1c232c; color: #eff2f5;
+  text-align: left; font: inherit;
+}
+.executive-kpi strong { font-size: clamp(1.6rem, 3vw, 2.2rem); }
+.executive-kpi:not(:disabled):hover { background: #27313c; cursor: pointer; }
+.executive-kpi:disabled { color: #aab5c1; }
+.executive-attention { padding: 1rem; border-radius: .55rem; background: #191f26; }
+.executive-attention h2 { margin: 0; font-size: 1.12rem; }
+.executive-attention p { margin: .65rem 0 0; color: #b8c3ce; }
+.executive-priorities { list-style: none; padding: 0; margin: .65rem 0 0; display: flex; flex-wrap: wrap; gap: .65rem; }
+.analytics-switch [aria-pressed="true"] { border-color: #ed574a; }
+.directory-shell .iam-panel .analytics-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: .75rem; }
+.analytics-metrics > div { padding: .75rem; background: #202730; border-radius: .4rem; }
+.analytics-metrics dd { font-size: 1.35rem; font-weight: 700; }
+.collapsible-panel > summary { cursor: pointer; font-size: 1.05rem; font-weight: 700; }
+.collapsible-content { display: grid; gap: 1rem; min-width: 0; }
+@media (max-width: 1080px) { .executive-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 460px) { .executive-kpi { min-height: 95px; padding: .65rem; } }
+.governance-shell { background: #101419; color: #f0f3f6; color-scheme: dark; }
+.governance-shell .sidebar, .governance-shell .topbar { background: #151a20; border-color: #303842; }
+.governance-shell .sidebar { border-right: 1px solid #303842; }
+.governance-shell .breadcrumb strong { color: #f0f3f6; }
+.governance-shell .workspace-selector { background: #20262e; border-color: #343d48; }
+.governance-shell .nav-item.active { color: #fff; background: #302424; box-shadow: inset 3px 0 #ed574a; }

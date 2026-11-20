@@ -1,7 +1,7 @@
 import { CertificationMetrics, type Certification } from "./CertificationMetrics";
 import { t } from "../i18n";
 import { useState, type FormEvent } from "react";
-import { Feedback, Page, Pagination, Panel, QueryState } from "./common";
+import { CollapsiblePanel, Feedback, Page, Pagination, Panel, QueryState } from "./common";
 import { displayTime, PAGE_SIZE, useCursor, useMutation, useQuery, type Session } from "./data";
 
 const campaignStatuses = ["draft", "active", "completed", "cancelled", "expired"] as const;
@@ -105,7 +105,7 @@ export function CertificationPage({ session }: { session: Session }) {
         <button className="primary-button" disabled={operation.busy}>{t("Create draft")}</button>
       </form>
     </Panel>}
-    <Panel title={t("Campaigns")}>
+    <CollapsiblePanel title={t("Campaigns")}>
       <label>{t("Status")}<select aria-label={t("Campaign status")} value={status} onChange={(event) => {
         setStatus(event.target.value);
         cursor.reset();
@@ -124,7 +124,7 @@ export function CertificationPage({ session }: { session: Session }) {
         </li>)}</ul> : <p>{t("No campaigns to display.")}</p>}
         <Pagination rows={campaigns} cursor={cursor} />
       </>}</QueryState>
-    </Panel>
+    </CollapsiblePanel>
     {selected !== undefined && <CampaignPanel key={selected} id={selected} session={session} operation={operation}
       onClose={() => setSelected(undefined)} />}
   </Page>;

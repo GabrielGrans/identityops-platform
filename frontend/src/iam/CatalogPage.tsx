@@ -2,7 +2,7 @@ import { DepartmentOperations } from "./DepartmentOperations";
 import { t } from "../i18n";
 import { useState, type FormEvent } from "react";
 import { type Employee } from "../services/api";
-import { Feedback, Page, Panel, QueryState } from "./common";
+import { CollapsiblePanel, Feedback, Page, Panel, QueryState } from "./common";
 import { DirectoryPagination, SearchChecks, SearchSelect } from "./DirectoryControls";
 import { employeeLabel, PAGE_SIZE, type CatalogItem, type Session, useMutation, useQuery } from "./data";
 
@@ -52,6 +52,8 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
     if (success) setEdit(null);
   }
 
+  const DirectoryPanel = catalog === "permissions" ? CollapsiblePanel : Panel;
+
   return <Page title={t(titles[catalog])}>
     <Feedback message={mutation.message} />
     {catalog === "departments" && <DepartmentOperations token={token} revision={mutation.revision} />}
@@ -79,7 +81,7 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
     {selectedGroup && <GroupDetails key={`${selectedGroup.id}:${selectedGroup.view}`} session={session}
       groupId={selectedGroup.id} view={selectedGroup.view} revision={mutation.revision}
       onClose={() => setSelectedGroup(undefined)} onChange={mutation.refresh} />}
-    <Panel title={t("Directory")}>
+    <DirectoryPanel title={t(catalog === "permissions" ? "Permissions directory" : "Directory")}>
       <div className="iam-form">
         <label>{t(catalog === "groups" ? "Search groups" : catalog === "permissions" ? "Search permissions" : "Search departments")}<input type="search" value={search} onChange={event => {
           setSearch(event.target.value); setPage(1);
@@ -128,7 +130,7 @@ export function CatalogPage({ catalog, session }: { catalog: Catalog; session: S
       </> : <p>{t("No records.")}</p>;
       }}</QueryState>
       {requestable.error && <p role="alert">{requestable.error}</p>}
-    </Panel>
+    </DirectoryPanel>
     {allowAccess && !canManageMembers && <MembershipsById session={session} />}
   </Page>;
 }

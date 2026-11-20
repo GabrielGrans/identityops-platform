@@ -20,6 +20,13 @@ export function Panel({ title, children }: { title: string; children: ReactNode 
   return <section className="panel iam-panel"><h2>{title}</h2>{children}</section>;
 }
 
+export function CollapsiblePanel({ title, children }: { title: string; children: ReactNode }) {
+  return <details className="panel iam-panel collapsible-panel">
+    <summary>{title}</summary>
+    <div className="collapsible-content">{children}</div>
+  </details>;
+}
+
 export function SelectId({ label, name, items, required = true, defaultValue }: {
   label: string;
   name: string;

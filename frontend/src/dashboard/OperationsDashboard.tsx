@@ -1,81 +1,61 @@
 import { t } from "../i18n";
-import { CertificationMetrics, type Certification } from "../iam/CertificationMetrics";
-import { Feedback, Page, Panel } from "../iam/common";
+import { Page, QueryState } from "../iam/common";
 import { displayTime, useQuery } from "../iam/data";
+import { type Certification } from "../iam/CertificationMetrics";
 
-interface Metrics {
+export interface Metrics {
   local_employees?: number; local_groups?: number; official_departments?: number; local_unassigned?: number;
   entra?: { users?: number; groups?: number; unassigned?: number; last_success: string | null; health: string; stale?: boolean };
   pending_local?: number; pending_entra?: number; provisioning_active?: number; provisioning_failed?: number;
   findings?: Record<string, number>; certification?: Certification;
 }
-interface Tile {
-  name: string; value: number | string | undefined; page: string; source: string;
-}
 
-export function OperationsDashboard({ token, navigate, children }: {
-  token: string; navigate: (page: string, source?: "local" | "entra") => void; children: React.ReactNode;
-}) {
+export type Navigate = (page: string, source?: "local" | "entra") => void;
+
+export function OperationsDashboard({ token, navigate }: { token: string; navigate: Navigate }) {
   const metrics = useQuery<Metrics>(token, "/v1/dashboard/operations");
-  const data = metrics.data;
-  const entra = data?.entra;
-  const local = "Local IdentityOps";
-  const graph = "Microsoft Entra ID";
-  const inventory: Tile[] = [
-    {name: "Entra users", value: entra?.users, page: "Employees", source: graph},
-    {name: "Local employees", value: data?.local_employees, page: "Employees", source: local},
-    {name: "Entra security groups", value: entra?.groups, page: "Access Groups", source: graph},
-    {name: "Local RBAC groups", value: data?.local_groups, page: "Access Groups", source: local},
-    {name: "Official departments", value: data?.official_departments, page: "Departments", source: local},
-    {name: "Unassigned department", value: entra?.unassigned, page: "Departments", source: graph},
-    {name: "Unassigned department", value: data?.local_unassigned, page: "Departments", source: local},
-  ];
-  const queue: Tile[] = [
-    {name: "Pending approvals", value: data?.pending_local, page: "Access Requests", source: local},
-    {name: "Pending approvals", value: data?.pending_entra, page: "Access Requests", source: graph},
-    {name: "Provisioning in progress", value: data?.provisioning_active, page: "Access Requests", source: graph},
-    {name: "Failed provisioning", value: data?.provisioning_failed, page: "Access Requests", source: graph},
-  ];
-
   return <Page title={t("IAM Governance Dashboard")}>
-    <Feedback message={metrics.error ? { text: metrics.error, error: true } : undefined} />
-    {!data && !metrics.error && <p role="status">{t("Loading…")}</p>}
-    {data && <>
-      {!!entra && <Panel title={t("Entra synchronization health")}>
-        <div className="iam-actions"><span className="directory-badge">{graph}</span>
-          <strong>{t(entra.health)}</strong></div>
-        <p>{t("Last successful sync:")} {entra.last_success ? displayTime(entra.last_success) : "—"}</p>
-        {entra.stale && <p role="status">{t("Showing a stale Entra snapshot.")}</p>}
-        <button className="secondary-button" onClick={() => navigate("Microsoft Entra ID")}>{t("Microsoft Entra ID")}</button>
-      </Panel>}
-      <DashboardTiles title="Directory inventory" tiles={inventory} navigate={navigate} />
-      <DashboardTiles title="Access operations" tiles={queue} navigate={navigate} />
-      {data.findings && <DashboardTiles title="Governance findings by severity" navigate={navigate} tiles={
-        ["critical", "high", "medium", "low"].map(severity => ({
-          name: severity, value: data.findings?.[severity] ?? 0, source: graph, page: "Notifications",
-        }))
-      } />}
-      {data.certification && <Panel title={t("Access Certification Campaigns")}>
-        <p title={t("Campaigns periodically review employee permissions and group memberships.")}>
-          {t("Campaigns periodically review employee permissions and group memberships.")}
-        </p>
-        <CertificationMetrics result={data.certification} />
-        <button className="secondary-button" onClick={() => navigate("Access Certification")}>{t("Open campaigns")}</button>
-      </Panel>}
-    </>}
-    <details className="panel iam-panel"><summary>{t("Detailed governance activity")}</summary>{children}</details>
+    <p className="executive-subtitle">{t("Monitor directory health, access risks and decisions awaiting action.")}</p>
+    <QueryState result={metrics}>{data => {
+      const { entra, findings } = data;
+      const approvals = [data.pending_local, data.pending_entra].filter(value => value !== undefined);
+      const risks = findings && Object.values(findings).reduce((total, count) => total + count, 0);
+      const priorities = [
+        entra && (entra.stale || ["failed", "unavailable"].includes(entra.health)) &&
+          { label: "Review Entra synchronization", page: "Microsoft Entra ID" },
+        !!(findings?.critical || findings?.high) && { label: "Investigate high-priority findings", page: "Notifications" },
+        approvals.some(count => count > 0) && { label: "Review pending access requests", page: "Access Requests" },
+        !!data.provisioning_failed && { label: "Investigate failed provisioning", page: "Access Requests" },
+        !!data.certification?.overdue && { label: "Review overdue certifications", page: "Access Certification" },
+      ].filter(item => item !== undefined && item !== false);
+      const visibleChecks = !!entra || !!findings || approvals.length > 0 ||
+        data.provisioning_failed !== undefined || data.certification !== undefined;
+      return <>
+        <div className="executive-status">
+          <button className="secondary-button" onClick={() => navigate("Microsoft Entra ID")} disabled={!entra}>{t("Entra synchronization")}</button>
+          <strong>{t(entra?.health ?? "unavailable")}</strong>
+          {entra?.last_success && <span>{t("Last successful sync:")} {displayTime(entra.last_success)}</span>}
+        </div>
+        <div className="executive-kpis">
+          <Kpi label="Entra identities" value={entra?.users} open={() => navigate("Employees", "entra")} />
+          <Kpi label="Local IdentityOps identities" value={data.local_employees} open={() => navigate("Employees", "local")} />
+          <Kpi label="Open governance risks" value={risks} open={() => navigate("Notifications")} />
+          <Kpi label="Pending actions" value={approvals.length ? approvals.reduce((a, b) => a + b, 0) : undefined}
+            open={() => navigate("Access Requests")} />
+        </div>
+        <section className="executive-attention" aria-labelledby="attention-heading">
+          <h2 id="attention-heading">{t("Requires attention")}</h2>
+          {priorities.length ? <ul className="executive-priorities">{priorities.map(item => <li key={item.label}>
+            <button className="secondary-button" onClick={() => navigate(item.page)}>{t(item.label)}</button>
+          </li>)}</ul> : <p>{t(visibleChecks ? "No urgent items in your view." : "No operational checks are available for your role.")}</p>}
+        </section>
+      </>;
+    }}</QueryState>
   </Page>;
 }
 
-function DashboardTiles({ title, tiles, navigate }: { title: string; tiles: Tile[]; navigate: (page: string, source?: "local" | "entra") => void }) {
-  return <Panel title={t(title)}>
-    <div className="operations-grid">
-      {tiles.map(({name, value, page, source}) => <button className="operations-tile" key={`${source}:${name}`}
-        onClick={() => navigate(page, source === "Local IdentityOps" ? "local" : "entra")}>
-        <span className="directory-badge">{t(source)}</span>
-        <strong>{value ?? "—"}</strong>
-        <span>{t(name)}</span>
-      </button>)}
-    </div>
-  </Panel>;
+function Kpi({ label, value, open }: { label: string; value?: number; open: () => void }) {
+  return <button className="executive-kpi" disabled={value === undefined} onClick={open}>
+    <span>{t(label)}</span><strong>{value ?? "—"}</strong>
+  </button>;
 }

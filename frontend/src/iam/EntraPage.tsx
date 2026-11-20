@@ -1,7 +1,7 @@
 import { t } from "../i18n";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { EntraReconciliation, type Selection } from "./EntraReconciliation";
-import { Feedback, Page, Pagination, Panel, QueryState } from "./common";
+import { CollapsiblePanel, Feedback, Page, Pagination, Panel, QueryState } from "./common";
 import { displayTime, PAGE_SIZE, useCursor, useMutation, useQuery, type Session } from "./data";
 
 type Run = {
@@ -116,7 +116,7 @@ export function EntraPage({ session }: { session: Session }) {
     {status.data && !["disabled", "migration_required"].includes(status.data.state) &&
       (status.data.state !== "invalid_configuration" || status.data.latest_run) && <>
         {user && <UserAccess key={user.object_id} user={user} token={token} revision={operation.revision} onClose={() => setUser(undefined)} />}
-        <Panel title={t("External directory")}>
+        <CollapsiblePanel title={t("External directory")}>
           <div className="iam-actions" aria-label={t("Directory view")}>
             <button className="secondary-button" aria-pressed={tab === "users"} onClick={() => { setTab("users"); setGroup(undefined); }}>{t("Users")}</button>
             <button className="secondary-button" aria-pressed={tab === "groups"} onClick={() => { setTab("groups"); setUser(undefined); }}>{t("Groups")}</button>
@@ -142,7 +142,7 @@ export function EntraPage({ session }: { session: Session }) {
                   <button className="secondary-button" onClick={() => setGroup(item)}>{t("View members")}</button>
                 </div>
               </>} />}
-        </Panel>
+        </CollapsiblePanel>
         {canReconcile && tab === "users" && selected.length > 0 &&
           <EntraReconciliation selected={selected} session={session}
             canCreate={canCreate} onComplete={operation.refresh}

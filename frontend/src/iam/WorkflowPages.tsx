@@ -1,7 +1,7 @@
 import { EntraChangeRequests } from "./EntraChangeRequests";
 import { t } from "../i18n";
 import { useState, type ReactNode } from "react";
-import { Feedback, Page, Panel, Pagination, QueryState, SelectId,  } from "./common";
+import { CollapsiblePanel, Feedback, Page, Panel, Pagination, QueryState, SelectId,  } from "./common";
 import { type CatalogItem, type Session, displayTime, PAGE_SIZE, useCursor, useMutation, useQuery } from "./data";
 
 interface Workflow {
@@ -184,7 +184,7 @@ export function AuditPage({ session }: { session: Session }) {
         <button className="primary-button">{t("Filter")}</button>
       </form>
     </Panel>
-    <Panel title={t("Events")}>
+    <CollapsiblePanel title={t("Events")}>
       <QueryState result={result}>{(rows) => <>
         {rows.length ? <ul className="iam-list">{rows.map((row) => <li key={row.id}>
           <div>
@@ -197,6 +197,6 @@ export function AuditPage({ session }: { session: Session }) {
         </li>)}</ul> : <p>{t("No events match the current filters.")}</p>}
         <Pagination rows={rows} cursor={cursor} />
       </>}</QueryState>
-    </Panel>
+    </CollapsiblePanel>
   </Page>;
 }

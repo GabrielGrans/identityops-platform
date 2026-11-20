@@ -33,21 +33,6 @@ interface Findings {
   items: { rule: string; employee_id: number; evidence: Record<string, string | number | number[]> }[];
 }
 
-export function RiskIndicators({ token, onOpen }: { token: string; onOpen?: () => void }) {
-  const result = useQuery<Findings>(token, "/governance/findings?limit=1");
-  if (result.errorStatus === 403) return null;
-  return <Panel title={t("Governance findings")}>
-    <QueryState result={result}>{report => <>
-      <div className="finding-counts">{Object.entries(rules).map(([key, label]) => <div key={key}>
-        <strong>{report.evaluated_rules.includes(key) ? report.counts[key] ?? 0 : "—"}</strong>
-        <span>{t(label)}</span>
-      </div>)}</div>
-      <p>{t("A dash means the rule was not evaluated.")}</p>
-      {onOpen && <button className="secondary-button" onClick={onOpen}>{t("View findings")}</button>}
-    </>}</QueryState>
-  </Panel>;
-}
-
 export function GovernancePage({ session }: { session: Session }) {
   const mutation = useMutation(session.token);
   const [offset, setOffset] = useState(0);

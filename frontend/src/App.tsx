@@ -18,21 +18,21 @@ import "./App.css";
 import { Brand, BrandCredit, BrandEmblem } from "./Brand";
 import LoginPage from "./LoginPage";
 import { OperationsDashboard } from "./dashboard/OperationsDashboard";
-import DashboardPage from "./dashboard/DashboardPage";
+import { AnalyticsPage } from "./dashboard/AnalyticsPage";
 import { t, useLanguage, useLocalizedValidation } from "./i18n";
 import { SettingsPage } from "./iam/SettingsPage";
-import { RiskIndicators } from "./iam/GovernancePage";
 import { IamPage } from "./iam/IamPage";
 import { getCurrentEmployee, type Employee } from "./services/api";
 
 const navigation = [
   { label: "Dashboard", icon: LayoutDashboard, section: "OVERVIEW" },
-  { label: "Employees", icon: Users, section: "IDENTITY MANAGEMENT" },
-  { label: "Microsoft Entra ID", icon: Building2, section: "IDENTITY MANAGEMENT" },
-  { label: "Departments", icon: Building2, section: "IDENTITY MANAGEMENT" },
-  { label: "Access Groups", icon: UsersRound, section: "ACCESS MANAGEMENT" },
-  { label: "Permissions", icon: ShieldCheck, section: "ACCESS MANAGEMENT" },
-  { label: "Access Requests", icon: LockKeyhole, section: "ACCESS MANAGEMENT" },
+  { label: "Analytics", icon: Activity, section: "OVERVIEW" },
+  { label: "Employees", icon: Users, section: "DIRECTORY" },
+  { label: "Microsoft Entra ID", icon: Building2, section: "DIRECTORY" },
+  { label: "Departments", icon: Building2, section: "DIRECTORY" },
+  { label: "Access Groups", icon: UsersRound, section: "DIRECTORY" },
+  { label: "Permissions", icon: ShieldCheck, section: "DIRECTORY" },
+  { label: "Access Requests", icon: LockKeyhole, section: "DIRECTORY" },
   { label: "Identity Lifecycle", icon: UserPlus, section: "GOVERNANCE" },
   { label: "Access Reviews", icon: CheckCircle2, section: "GOVERNANCE" },
   { label: "Access Certification", displayLabel: "Access Certification Campaigns", icon: ShieldCheck, section: "GOVERNANCE" },
@@ -134,13 +134,19 @@ function App() {
   const displayName = `${currentEmployee.first_name} ${currentEmployee.last_name}`;
   const initials = getInitials(currentEmployee);
 
+  function navigate(page: string, source?: "local" | "entra") {
+    const directory = page === "Employees" ? "users" : page === "Access Groups" ? "groups" : null;
+    history.replaceState(null, "", location.pathname + location.search + (directory && source ? `#${source}/${directory}` : ""));
+    setActivePage(page);
+  }
+
   return (
     <div className="app-shell governance-shell directory-shell">
       <aside className="sidebar">
         <Brand className="grans-sidebar" />
 
         <nav className="sidebar-nav">
-          {["OVERVIEW", "IDENTITY MANAGEMENT", "ACCESS MANAGEMENT", "GOVERNANCE"].map(
+          {["OVERVIEW", "DIRECTORY", "GOVERNANCE"].map(
             (section) => (
               <div className="nav-section" key={section}>
                 <span className="nav-section-label">{t(section)}</span>
@@ -211,12 +217,9 @@ function App() {
 
         <div className="page-content">
           {isDashboard ? (
-            <OperationsDashboard key={language} token={token} navigate={(page, source) => {
-              const directory = page === "Employees" ? "users" : page === "Access Groups" ? "groups" : null;
-              history.replaceState(null, "", location.pathname + location.search + (directory && source ? `#${source}/${directory}` : ""));
-              setActivePage(page);
-            }}><DashboardPage token={token} navigate={setActivePage} />
-              <RiskIndicators token={token} onOpen={() => setActivePage("Governance findings")} /></OperationsDashboard>
+            <OperationsDashboard key={language} token={token} navigate={navigate} />
+          ) : activePage === "Analytics" ? (
+            <AnalyticsPage key={language} token={token} navigate={navigate} />
           ) : activePage === "Settings" ? (
             <SettingsPage />
           ) : (
