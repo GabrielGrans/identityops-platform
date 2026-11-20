@@ -46,6 +46,8 @@ class SyncRunResponse(BaseModel):
 
 
 class EntraStatus(BaseModel):
+    imported_users: int | None = None
+    imported_groups: int | None = None
     state: Literal["disabled", "invalid_configuration", "migration_required", "ready", "connected", "error", "sync_running"]
     message: str
     last_success_at: datetime | None = None

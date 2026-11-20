@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     ENTRA_ENABLED: bool = False
+    ENTRA_SYNC_INTERVAL_MINUTES: int = Field(default=10, ge=5, le=15)
+    ENTRA_WRITE_ENABLED: bool = False
+    ENTRA_WRITE_GROUP_IDS: str = ""
+    ENTRA_PROTECTED_GROUP_IDS: str = ""
     AZURE_TENANT_ID: str = Field(default="", repr=False)
     AZURE_CLIENT_ID: str = Field(default="", repr=False)
     AZURE_CLIENT_SECRET: SecretStr = Field(default=SecretStr(""), repr=False, exclude=True)

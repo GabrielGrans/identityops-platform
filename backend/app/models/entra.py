@@ -16,7 +16,7 @@ class EntraSyncRun(EntraBase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(36), index=True)
-    actor_id: Mapped[int] = mapped_column(ForeignKey(Employee.id))
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey(Employee.id))
     active_slot: Mapped[int | None] = mapped_column(Integer, unique=True)
     status: Mapped[str] = mapped_column(String(16))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

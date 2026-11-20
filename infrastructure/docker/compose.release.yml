@@ -33,6 +33,10 @@ services:
       AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET:-}
       ENTRA_GRAPH_BASE_URL: ${ENTRA_GRAPH_BASE_URL:-https://graph.microsoft.com/v1.0}
       ENTRA_HTTP_TIMEOUT_SECONDS: ${ENTRA_HTTP_TIMEOUT_SECONDS:-10}
+      ENTRA_SYNC_INTERVAL_MINUTES: ${ENTRA_SYNC_INTERVAL_MINUTES:-10}
+      ENTRA_WRITE_ENABLED: ${ENTRA_WRITE_ENABLED:-false}
+      ENTRA_WRITE_GROUP_IDS: ${ENTRA_WRITE_GROUP_IDS:-}
+      ENTRA_PROTECTED_GROUP_IDS: ${ENTRA_PROTECTED_GROUP_IDS:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,6 +45,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
+
+  entra-worker:
+    profiles: ["entra"]
+    extends:
+      service: api
+    command: ["python", "-m", "backend.app.scripts.entra_worker"]
+    healthcheck:
+      test: ["NONE"]
 
   web:
     image: identityops-web:${IDENTITYOPS_VERSION:-1.4.0}

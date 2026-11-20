@@ -23,6 +23,9 @@ MAX_MEMBERSHIPS = 25_000
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 
 MESSAGES = {
+    "delta_expired": "The directory checkpoint expired.",
+    "write_unsupported": "This group does not support controlled provisioning.",
+    "write_conflict": "The current membership differs from the approved preview.",
     "disabled": "The Microsoft Entra integration is disabled.",
     "invalid_configuration": "Configure the backend Entra tenant, application and secret.",
     "token_rejected": "Microsoft rejected the credentials. Verify the tenant, application and active secret.",
@@ -157,8 +160,8 @@ class GraphClient:
             raise GraphError("sync_limit")
         return remaining
 
-    def request(self, method: str, url: str | httpx.URL, *, token_request=False, membership=False, **kwargs):
-        for attempt in range(3):
+    def request(self, method: str, url: str | httpx.URL, *, token_request=False, membership=False, accepted=(), delta=False, attempts=3, **kwargs):
+        for attempt in range(attempts):
             self.requests += 1
             if self.requests > MAX_REQUESTS:
                 raise GraphError("sync_limit")
@@ -167,6 +170,10 @@ class GraphClient:
             try:
                 with self.http.stream(method, url, timeout=timeout, **kwargs) as response:
                     status = response.status_code
+                    if status in accepted:
+                        return status
+                    if status == 410 and delta:
+                        raise GraphError("delta_expired")
                     if status == 200:
                         return self.read_json(response)
                     if status == 429:
@@ -178,6 +185,8 @@ class GraphClient:
                     elif token_request and status in (400, 401, 403):
                         raise GraphError("token_rejected")
                     elif status == 401:
+                        with self.cache.lock:
+                            self.cache.expires_at = 0
                         raise GraphError("graph_unauthorized")
                     elif status == 403:
                         raise GraphError("membership_forbidden" if membership else "graph_forbidden")
@@ -186,7 +195,7 @@ class GraphClient:
             except httpx.RequestError:
                 code = "graph_unavailable"
             delay = max(0.5 * 2**attempt, retry_after or 0)
-            if attempt == 2 or delay > 15 or delay >= self.remaining():
+            if attempt == attempts - 1 or delay > 15 or delay >= self.remaining():
                 raise GraphError(code, retry_after)
             sleep(delay)
 
@@ -273,11 +282,95 @@ class GraphClient:
             ):
                 raise GraphError("invalid_response")
 
+    def delta(self, resource: str, fields: str, checkpoint: str | None = None):
+        if resource not in ("users", "groups"):
+            raise ValueError("Unsupported directory delta resource")
+        base = httpx.URL(f"{self.config.base_url}/{resource}/delta")
+
+        def validate(value):
+            if not isinstance(value, str) or len(value) > 8192:
+                raise GraphError("invalid_response")
+            try:
+                url = httpx.URL(value)
+            except httpx.InvalidURL:
+                raise GraphError("invalid_response") from None
+            if (url.scheme, url.host, url.port, url.raw_path.partition(b"?")[0]) != (
+                base.scheme, base.host, base.port, base.raw_path,
+            ) or url.userinfo or url.fragment:
+                raise GraphError("invalid_response")
+            return url
+
+        url = validate(checkpoint) if checkpoint else base.copy_merge_params({"$select": fields})
+        visited = set()
+        patches = []
+        while url not in visited:
+            visited.add(url)
+            data = self.request("GET", url, delta=True, headers={"Authorization": f"Bearer {self.token()}"})
+            items = data.get("value")
+            if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+                raise GraphError("invalid_response")
+            if len(patches) + len(items) > MAX_OBJECTS:
+                raise GraphError("sync_limit")
+            patches.extend(items)
+            if "@odata.nextLink" in data:
+                url = validate(data["@odata.nextLink"])
+            else:
+                return patches, str(validate(data.get("@odata.deltaLink")))
+        raise GraphError("invalid_response")
+
+    def direct_memberships(self, groups, users):
+        memberships = set()
+        read = skipped = 0
+        for group_id in groups:
+            for member in self.pages(f"/groups/{group_id}/members", "id", membership=True):
+                read += 1
+                if read > MAX_MEMBERSHIPS:
+                    raise GraphError("sync_limit")
+                kind = member.get("@odata.type")
+                if kind is not None and kind != "#microsoft.graph.user":
+                    continue
+                key = object_id(member)
+                if key in users:
+                    memberships.add((group_id, key))
+                elif kind == "#microsoft.graph.user":
+                    skipped += 1
+        return memberships, skipped
+
+    def check_group(self, group_id: str):
+        group_id = str(UUID(group_id))
+        response = self.request("GET", f"{self.config.base_url}/groups/{group_id}",
+            params={"$select": "id,securityEnabled,mailEnabled,groupTypes,onPremisesSyncEnabled,isAssignableToRole"},
+            headers={"Authorization": f"Bearer {self.token()}"})
+        if (object_id(response) != group_id or response.get("securityEnabled") is not True
+            or response.get("mailEnabled") is not False or response.get("groupTypes") != []
+            or "onPremisesSyncEnabled" not in response or response["onPremisesSyncEnabled"] not in (False, None)
+            or response.get("isAssignableToRole") is not False):
+            raise GraphError("write_unsupported")
+
+    def has_member(self, group_id: str, user_id: str):
+        group_id, user_id = str(UUID(group_id)), str(UUID(user_id))
+        for count, member in enumerate(self.pages(f"/groups/{group_id}/members", "id", membership=True), 1):
+            if count > MAX_MEMBERSHIPS:
+                raise GraphError("sync_limit")
+            if member.get("@odata.type") in (None, "#microsoft.graph.user") and object_id(member) == user_id:
+                return True
+        return False
+
+    def change_member(self, group_id: str, user_id: str, add: bool):
+        group_id, user_id = str(UUID(group_id)), str(UUID(user_id))
+        headers = {"Authorization": f"Bearer {self.token()}"}
+        if add:
+            self.request("POST", f"{self.config.base_url}/groups/{group_id}/members/$ref",
+                accepted=(204,), attempts=1, headers=headers,
+                json={"@odata.id": f"{self.config.base_url}/directoryObjects/{user_id}"})
+        else:
+            # The /$ref suffix removes the membership only.
+            self.request("DELETE", f"{self.config.base_url}/groups/{group_id}/members/{user_id}/$ref",
+                accepted=(204,), attempts=1, headers=headers)
+
     def snapshot(self) -> DirectorySnapshot:
         users: dict[str, UserRecord] = {}
         groups: dict[str, GroupRecord] = {}
-        memberships: set[tuple[str, str]] = set()
-        skipped = 0
         for count, item in enumerate(self.pages(
             "/users", "id,displayName,userPrincipalName,mail,accountEnabled,userType,employeeType,"
                       "employeeId,givenName,surname,jobTitle"
@@ -304,18 +397,5 @@ class GraphClient:
                 "object_id": key, "display_name": optional_text(item, "displayName", 256),
                 "security_enabled": optional_bool(item, "securityEnabled"),
             }
-        members_read = 0
-        for group in groups:
-            for member in self.pages(f"/groups/{group}/members", "id", membership=True):
-                members_read += 1
-                if members_read > MAX_MEMBERSHIPS:
-                    raise GraphError("sync_limit")
-                kind = member.get("@odata.type")
-                if kind is not None and kind != "#microsoft.graph.user":
-                    continue
-                key = object_id(member)
-                if key in users:
-                    memberships.add((group, key))
-                elif kind == "#microsoft.graph.user":
-                    skipped += 1
+        memberships, skipped = self.direct_memberships(groups, users)
         return DirectorySnapshot(users, groups, memberships, skipped)

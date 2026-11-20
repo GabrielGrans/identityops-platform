@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import {
   Activity,
+  Bell,
   Building2,
   CheckCircle2,
   LayoutDashboard,
@@ -35,6 +36,8 @@ const navigation = [
   { label: "Identity Lifecycle", icon: UserPlus, section: "GOVERNANCE" },
   { label: "Access Reviews", icon: CheckCircle2, section: "GOVERNANCE" },
   { label: "Access Certification", icon: ShieldCheck, section: "GOVERNANCE" },
+  { label: "Entra role governance", icon: ShieldCheck, section: "GOVERNANCE" },
+  { label: "Notifications", icon: Bell, section: "GOVERNANCE" },
   { label: "Governance findings", icon: ShieldCheck, section: "GOVERNANCE" },
   { label: "Audit Logs", icon: Activity, section: "GOVERNANCE" },
 ];

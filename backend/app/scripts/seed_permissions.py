@@ -10,6 +10,10 @@ from backend.app.services.audit_service import record_event
 
 
 PERMISSIONS = [
+    {"name": "Entra approve change", "code": "entra:approve_change", "resource": "entra",
+     "action": "approve_change", "description": "Controlled Entra membership requests."},
+    {"name": "Entra request change", "code": "entra:request_change", "resource": "entra",
+     "action": "request_change", "description": "Controlled Entra membership requests."},
     {"name": "Governance manage", "code": "governance:manage", "resource": "governance",
      "action": "manage", "description": "Enterprise governance findings and policy."},
     {"name": "Governance read", "code": "governance:read", "resource": "governance",

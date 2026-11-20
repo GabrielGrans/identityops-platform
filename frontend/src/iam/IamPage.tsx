@@ -1,4 +1,5 @@
 import { t } from "../i18n";
+import { EntraGovernancePage } from "./EntraGovernancePage";
 import { GovernancePage } from "./GovernancePage";
 import { CertificationPage } from "./CertificationPage";
 import { EntraPage } from "./EntraPage";
@@ -14,6 +15,8 @@ export function IamPage({ page, token, employeeId }: { page: string; token: stri
   const result = useQuery<string[]>(token, "/auth/me/permissions");
   return <QueryState result={result}>{(permissions) => {
     const session = { token, employeeId, permissions };
+    if (["Entra role governance", "Notifications"].includes(page) && permissions.includes("governance:read") && permissions.includes("entra:read"))
+      return <EntraGovernancePage session={session} notifications={page === "Notifications"} />;
     if (page === "Governance findings" && permissions.includes("governance:read")) return <GovernancePage session={session} />;
     if (page === "Access Requests") return <RequestsPage session={session} />;
     if (page === "Access Groups" && permissions.includes("groups:read")) return <CatalogPage catalog="groups" session={session} />;

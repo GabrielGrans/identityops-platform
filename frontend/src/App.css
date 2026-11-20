@@ -1665,3 +1665,40 @@
 }
 
 .finding-counts strong { color: #f8786c; font-size: 1.35rem; }
+
+.app-shell .sidebar {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-shell .sidebar-nav {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.app-shell .sidebar-bottom,
+.app-shell .grans-sidebar {
+  flex-shrink: 0;
+}
+
+@media (max-height: 650px) {
+  .app-shell .grans-sidebar { padding-bottom: .5rem; }
+  .app-shell .sidebar-bottom > .grans-credit { display: none; }
+}
+
+@media (max-width: 800px) {
+  .app-shell .sidebar-bottom .user-copy { display: grid; }
+  .app-shell .sidebar-bottom .user-profile { display: grid; justify-items: center; gap: .3rem; min-width: 0; }
+  .app-shell .sidebar-bottom :is(.user-name, .user-role) {
+    max-width: 100%;
+    font-size: .58rem;
+    overflow-wrap: anywhere;
+    text-align: center;
+    white-space: normal;
+  }
+}

@@ -115,6 +115,8 @@ def connection_status(db: DB, actor: Reader, config: Config):
             state, message = "error", MESSAGES.get(code, MESSAGES["storage_failed"])
     return EntraStatus(
         state=state, message=message,
+        imported_users=success.users_count if success else None,
+        imported_groups=success.groups_count if success else None,
         last_success_at=success.finished_at if success else None,
         latest_run=SyncRunResponse.model_validate(latest) if latest else None,
     )

@@ -1,3 +1,4 @@
+import { EntraChangeRequests } from "./EntraChangeRequests";
 import { t } from "../i18n";
 import { useState, type ReactNode } from "react";
 import { Feedback, Page, Panel, Pagination, QueryState, SelectId,  } from "./common";
@@ -60,6 +61,8 @@ export function RequestsPage({ session }: { session: Session }) {
   const mine = useQuery<Workflow[]>(token, `/access-requests?limit=${PAGE_SIZE}${mineCursor.query}`, mutation.revision);
   const queue = useQuery<Workflow[]>(token, canApprove ? `/access-requests/queue?limit=${PAGE_SIZE}${queueCursor.query}` : null, mutation.revision);
   return <Page title={t("Access Requests")}>
+    <EntraChangeRequests session={session} />
+    <h2>{t("Employee self-service requests")}</h2>
     <Feedback message={mutation.message} />
     <Panel title={t("Request group access")}>
       <QueryState result={catalog}>{(groups) => groups.length ? <form className="iam-form" onSubmit={async (event) => {
@@ -164,13 +167,18 @@ export function AuditPage({ session }: { session: Session }) {
         event.preventDefault();
         const values = new FormData(event.currentTarget);
         const params = new URLSearchParams();
-        for (const key of ["action", "actor_id"]) {
+        for (const key of ["action", "actor_id", "category"]) {
           const value = String(values.get(key)).trim();
           if (value) params.set(key, value);
         }
         cursor.reset();
         setFilters(`&${params}`);
       }}>
+        <label>{t("Event category")}<select name="category">
+          <option value="">{t("All categories")}</option>
+          <option value="entra_sync">{t("Entra synchronization")}</option>
+          <option value="entra_provisioning">{t("Entra provisioning")}</option>
+        </select></label>
         <label>{t("Action")}<input name="action" placeholder={t("request.approved")} maxLength={80} /></label>
         <label>{t("Actor ID")}<input name="actor_id" type="number" min={1} /></label>
         <button className="primary-button">{t("Filter")}</button>

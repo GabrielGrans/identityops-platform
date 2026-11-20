@@ -105,8 +105,12 @@ def audit_events(
     db: DB, actor: Auditor, before_id: Cursor = None, limit: Limit = 50,
     action: Annotated[str | None, Query(max_length=80)] = None,
     actor_id: Annotated[int | None, Query(gt=0)] = None,
+    category: Literal["entra_sync", "entra_provisioning"] | None = None,
 ):
     statement = select(AuditEvent)
+    if category:
+        prefix = {"entra_sync": "entra.sync.", "entra_provisioning": "entra.provisioning."}[category]
+        statement = statement.where(AuditEvent.action.startswith(prefix, autoescape=True))
     if action is not None:
         statement = statement.where(AuditEvent.action == action)
     if actor_id is not None:

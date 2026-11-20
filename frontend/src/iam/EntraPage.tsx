@@ -20,6 +20,8 @@ type Connection = {
   state: "disabled" | "invalid_configuration" | "migration_required" | "ready" | "connected" | "error" | "sync_running";
   message: string;
   last_success_at: string | null;
+  imported_users: number | null;
+  imported_groups: number | null;
   latest_run: Run | null;
 };
 
@@ -55,22 +57,13 @@ const errors: Record<string, string> = {
   storage_failed: "The snapshot could not be stored.",
 };
 
-function RunDetails({ run }: { run: Run }) {
-  return <div>
-    <strong>#{run.id} · {t(run.status)}</strong>
-    <p>{t("Started")}{" "}{displayTime(run.started_at)}{run.finished_at && t(" · Finished {p0}", { p0: String(displayTime(run.finished_at)) })}</p>
-    {run.status === "completed" && <p>
-      {run.users_count}{" "}{t("users ·")}{" "}{run.groups_count}{" "}{t("groups ·")}{" "}{run.memberships_count}{" "}{t("direct memberships")}
-    </p>}
-    {!!run.skipped_users_count && <p>{run.skipped_users_count}{" "}{t("membership entries referenced users outside the snapshot.")}</p>}
-    {run.error_code && <p>{t(errors[run.error_code] ?? "Synchronization could not complete.")}</p>}
-  </div>;
-}
-
 export function EntraPage({ session }: { session: Session }) {
   const { token, permissions } = session;
   const operation = useMutation(token);
   const status = useQuery<Connection>(token, "/entra/status", operation.revision, true);
+  const schedule = useQuery<{next_run: string | null; failures: number}>(token,
+    status.data && !["disabled", "invalid_configuration", "migration_required"].includes(status.data.state)
+      ? "/entra/automation/schedule" : null, operation.revision, true);
   const canSync = permissions.includes("entra:sync");
   const canLink = permissions.includes("entra:manage_links");
   const [tab, setTab] = useState<"users" | "groups">("users");
@@ -105,6 +98,11 @@ export function EntraPage({ session }: { session: Session }) {
           <strong>{t(connectionLabels[connection.state])}</strong>
           <p>{t(connection.message)}</p>
           <p>{t("Last successful sync:")}{" "}{connection.last_success_at ? displayTime(connection.last_success_at) : t("Never")}</p>
+          <p>{t("Next scheduled synchronization")}: {schedule.data?.next_run ? displayTime(schedule.data.next_run) : "—"}</p>
+          {schedule.error && <p role="alert">{schedule.error}</p>}
+          {!!schedule.data?.failures && <p role="status">{t("Consecutive synchronization failures")}: {schedule.data.failures}</p>}
+          <p>{t("Imported users")}: {connection.imported_users ?? "—"} · {t("Imported groups")}: {connection.imported_groups ?? "—"}</p>
+          {connection.latest_run?.error_code && <p role="alert">{t(errors[connection.latest_run.error_code] ?? "Synchronization could not complete.")}</p>}
           {connection.latest_run && <p>{t("Latest run #")}{connection.latest_run.id} · {t(connection.latest_run.status)}</p>}
         </div>
         <div className="iam-actions">
@@ -154,10 +152,6 @@ export function EntraPage({ session }: { session: Session }) {
           <DirectoryList<User> key={group.object_id} token={token} path={`/entra/groups/${group.object_id}/members`} revision={operation.revision}
             render={(item) => <UserDetails user={item} />} />
         </Panel>}
-        <Panel title={t("Synchronization history")}>
-          <DirectoryList<Run> token={token} path="/entra/sync-runs" revision={operation.revision} searchable={false}
-            render={(run) => <RunDetails run={run} />} />
-        </Panel>
       </>}
   </Page>;
 }

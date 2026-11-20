@@ -132,3 +132,5 @@ A sincronização atualiza apenas o snapshot de leitura. A criação de colabora
 - Novos colaboradores ficam inativos, sem senha, gestor ou grupos. O fluxo não habilita login nem modifica o Entra.
 - A aplicação revalida o lote e verifica a revisão do snapshot. Um item bloqueado cancela todas as alterações de colaboradores e vínculos. Repetir um lote aplicado retorna os vínculos existentes. A auditoria registra operador, horário, IDs e resultado. Para desfazer um vínculo, desvincule explicitamente. O colaborador permanece cadastrado.
 - Antes de atualizar, faça backup. Rode `python -m backend.app.scripts.migrate` e `python -m backend.app.scripts.seed_permissions`, depois sincronize novamente. Se houver e-mails locais duplicados ignorando maiúsculas e espaços nas pontas, a migração é interrompida. Resolva os registros manualmente antes de tentar novamente.
+
+For background synchronization, role policies, administrative requests and opt-in writeback, see [Entra automation](ENTRA_AUTOMATION.md).
