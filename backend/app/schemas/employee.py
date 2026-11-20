@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr
 
 
 class EmployeeCreate(BaseModel):
@@ -11,6 +12,16 @@ class EmployeeCreate(BaseModel):
     job_title: str = Field(min_length=2, max_length=120)
     department_id: int | None = None
     manager_id: int | None = None
+
+
+class EmployeeAdminCreate(EmployeeCreate):
+    status: Literal["active", "inactive"] = "active"
+    password: SecretStr | None = None
+    group_ids: list[int] = Field(default_factory=list, max_length=100)
+
+
+class EmployeePassword(BaseModel):
+    password: SecretStr
 
 
 class EmployeeUpdate(BaseModel):

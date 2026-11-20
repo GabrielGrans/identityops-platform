@@ -46,7 +46,23 @@ class SyncRunResponse(BaseModel):
 
 
 class EntraStatus(BaseModel):
+    imported_users: int | None = None
+    imported_groups: int | None = None
     state: Literal["disabled", "invalid_configuration", "migration_required", "ready", "connected", "error", "sync_running"]
     message: str
     last_success_at: datetime | None = None
     latest_run: SyncRunResponse | None = None
+
+
+class AccessComparison(BaseModel):
+    local_only_group_ids: list[int]
+    entra_only_group_ids: list[int]
+    unmapped_local_group_ids: list[int]
+    unmapped_entra_group_ids: list[str]
+
+
+class UserAccessResponse(BaseModel):
+    user: ExternalUser
+    groups: list[ExternalGroup]
+    comparison: AccessComparison | None
+    snapshot_id: int | None

@@ -2,11 +2,13 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend.app.core.authorization import group_codes, require_delegation
+from backend.app.core.security import hash_password
 from backend.app.models.department import Department
 from backend.app.models.employee import Employee
 from backend.app.models.governance import AccessRequest, AccessReview
-from backend.app.services.access_state import close_pending, lock_employee
-from backend.app.services.audit_service import commit_change
+from backend.app.services.access_state import close_pending, lock_employee, lock_group
+from backend.app.services.audit_service import commit_change, record_event
 
 
 EMPLOYEE_UPDATE_FIELDS = {
@@ -130,7 +132,15 @@ def save_employee(db: Session, actor_id: int | None, action: str, employee: Empl
         raise ValueError("The employee record conflicts with existing data") from None
 
 
-def create_employee(db: Session, data: dict, actor_id: int | None = None):
+def password_hash_for(password: str) -> str:
+    if not 12 <= len(password) <= 128 or len(password.strip()) == 0:
+        raise ValueError("Use a password of 12 to 128 characters with at least one non-space character")
+    return hash_password(password)
+
+
+def create_employee(
+    db: Session, data: dict, actor_id: int | None = None, *, password: str | None = None, group_ids=(),
+):
     lock_reporting_hierarchy(db)
     validate_relationships(
         db,
@@ -140,9 +150,33 @@ def create_employee(db: Session, data: dict, actor_id: int | None = None):
 
     validate_unique_fields(db, data)
 
-    employee = Employee(**data)
-
+    groups = []
+    if group_ids:
+        require_delegation(db, actor_id, (), "access:manage")
+        if data.get("status", "active") != "active":
+            raise ValueError("Cannot assign groups to an inactive employee")
+        for group_id in sorted(set(group_ids)):
+            group = lock_group(db, group_id)
+            if group is None or not group.is_active:
+                raise ValueError("Group not found or inactive")
+            groups.append(group)
+        require_delegation(db, actor_id, group_codes(groups), "access:manage")
+    hashed = None
+    if password is not None:
+        require_delegation(db, actor_id, (), "employees:reset_password")
+        hashed = password_hash_for(password)
+    employee = Employee(**data, password_hash=hashed, groups=groups)
     db.add(employee)
+    if actor_id is not None and (groups or hashed is not None):
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            raise ValueError("The employee record conflicts with existing data") from None
+        if hashed is not None:
+            record_event(db, actor_id, "employee.password.set", "employees", employee.id)
+        for group in groups:
+            record_event(db, actor_id, "employee.group.assigned", "employees", employee.id, group_id=group.id)
     save_employee(db, actor_id, "employee.create", employee)
 
     return employee
@@ -189,3 +223,26 @@ def deactivate_employee(db: Session, employee: Employee, actor_id: int | None = 
     commit_change(db, actor_id, "employee.deactivate", employee)
 
     return employee
+
+def activate_employee(db: Session, employee_id: int, actor_id: int):
+    lock_reporting_hierarchy(db)
+    employee = lock_employee(db, employee_id)
+    if employee is None:
+        raise LookupError("Employee not found")
+    groups = [lock_group(db, group_id) for group_id in sorted(group.id for group in employee.groups)]
+    require_delegation(db, actor_id, group_codes(groups), "employees:update")
+    if employee.status != "active":
+        employee.status = "active"
+        save_employee(db, actor_id, "employee.activate", employee)
+    return employee
+
+
+def set_employee_password(db: Session, employee_id: int, actor_id: int, password: str):
+    employee = lock_employee(db, employee_id)
+    if employee is None:
+        raise LookupError("Employee not found")
+    groups = [lock_group(db, group_id) for group_id in sorted(group.id for group in employee.groups)]
+    require_delegation(db, actor_id, group_codes(groups), "employees:reset_password")
+    action = "employee.password.reset" if employee.password_hash else "employee.password.set"
+    employee.password_hash = password_hash_for(password)
+    save_employee(db, actor_id, action, employee)

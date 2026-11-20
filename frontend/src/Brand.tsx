@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import "./brand.css";
 
 const emblem = `${import.meta.env.BASE_URL}favicon.svg`;
@@ -13,12 +14,12 @@ export function Brand({ className }: { className: string }) {
       <div className="grans-copy">
         <span className="grans-company">Grans Enterprise</span>
         <strong className="grans-product">Identity<span>Ops</span></strong>
-        <span className="grans-subtitle">Identity &amp; Access Management Platform</span>
+        <span className="grans-subtitle">{t("Identity & Access Management Platform")}</span>
       </div>
     </div>
   );
 }
 
 export function BrandCredit() {
-  return <p className="grans-credit">Engineered by Gabriel Grans</p>;
+  return <p className="grans-credit">{t("Engineered by Gabriel Grans")}</p>;
 }

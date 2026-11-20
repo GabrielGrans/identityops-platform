@@ -37,7 +37,7 @@ def finish_failed(db: Session, run: EntraSyncRun, code: str):
     record_event(db, run.actor_id, "entra.sync.failed", "entra_sync_runs", run.id, error_code=code)
 
 
-def start_sync(db: Session, tenant_id: str, actor_id: int) -> int:
+def start_sync(db: Session, tenant_id: str, actor_id: int | None) -> int:
     try:
         active = db.scalar(select(EntraSyncRun).where(EntraSyncRun.active_slot == 1).with_for_update())
         if active is not None:
@@ -82,7 +82,7 @@ def upsert_directory(db: Session, model, records: Iterable[dict], tenant_id: str
     return ids
 
 
-def persist_snapshot(db: Session, run: EntraSyncRun, snapshot: DirectorySnapshot):
+def persist_snapshot(db: Session, run: EntraSyncRun, snapshot: DirectorySnapshot, before_commit=None):
     users = upsert_directory(db, EntraUser, snapshot.users.values(), run.tenant_id, run.id)
     groups = upsert_directory(db, EntraGroup, snapshot.groups.values(), run.tenant_id, run.id)
     db.execute(delete(EntraMembership).where(
@@ -104,11 +104,13 @@ def persist_snapshot(db: Session, run: EntraSyncRun, snapshot: DirectorySnapshot
     run.active_slot = None
     run.finished_at = utcnow()
     record_event(db, run.actor_id, "entra.sync.completed", "entra_sync_runs", run.id, **counts)
+    if before_commit is not None:
+        before_commit()
     db.commit()
 
 
 def synchronize(
-    db: Session, tenant_id: str, actor_id: int, fetch_snapshot: Callable[[], DirectorySnapshot],
+    db: Session, tenant_id: str, actor_id: int | None, fetch_snapshot: Callable[[], DirectorySnapshot], *, before_commit=None,
 ) -> EntraSyncRun:
     run_id = start_sync(db, tenant_id, actor_id)
     try:
@@ -116,7 +118,10 @@ def synchronize(
         run = db.get(EntraSyncRun, run_id, with_for_update=True)
         if run.active_slot != 1 or expired(run):
             raise GraphError("sync_expired")
-        persist_snapshot(db, run, snapshot)
+        if before_commit is None:
+            persist_snapshot(db, run, snapshot)
+        else:
+            persist_snapshot(db, run, snapshot, lambda: before_commit(run))
         return run
     except (GraphError, SQLAlchemyError) as error:
         code = error.code if isinstance(error, GraphError) else "storage_failed"
@@ -139,7 +144,7 @@ class LinkError(Exception):
         self.status = status
 
 
-def change_link(db: Session, external_model, tenant_id: str, object_id: str, actor_id: int, local_id: int | None):
+def change_link(db: Session, external_model, tenant_id: str, object_id: str, actor_id: int | None, local_id: int | None):
     if external_model is EntraUser:
         local_model, link_field = Employee, EntraUser.local_employee_id
     else:

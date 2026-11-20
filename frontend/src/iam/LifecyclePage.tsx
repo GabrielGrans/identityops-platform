@@ -1,6 +1,7 @@
+import { t } from "../i18n";
 import { useState, type FormEvent } from "react";
 import { type Employee } from "../services/api";
-import { Feedback, Page, Panel, QueryState, SelectId } from "./common";
+import { Drawer, Feedback, Page, QueryState, SelectId } from "./common";
 import { type CatalogItem, type Session, useMutation, useQuery } from "./data";
 
 const operations = [
@@ -17,6 +18,7 @@ function optionalNumber(form: FormData, field: string) {
 export function LifecyclePage({ session }: { session: Session }) {
   const { token, permissions } = session;
   const allowed = operations.filter((item) => permissions.includes(item.permission));
+  const [open, setOpen] = useState(false);
   const [operation, setOperation] = useState(allowed[0]?.value);
   const mutation = useMutation(token);
   const [employeeId, setEmployeeId] = useState("");
@@ -47,6 +49,7 @@ export function LifecyclePage({ session }: { session: Session }) {
     } : operation === "mover" ? {
       ...profile, expected_group_ids: memberships.data?.map((group) => group.id),
     } : { reason: fields.get("reason") };
+    if (operation === "leaver" && !window.confirm(t("Offboard this employee and remove all local memberships?"))) return;
     const path = operation === "joiner" ? "/lifecycle/joiner" : `/lifecycle/${id}/${operation}`;
     if (await mutation.mutate(path, "POST", payload)) {
       form.reset();
@@ -58,66 +61,68 @@ export function LifecyclePage({ session }: { session: Session }) {
   function profileFields(currentGroups: CatalogItem[]) {
     const defaults = new Set(currentGroups.filter((group) => group.is_active).map((group) => group.id));
     return <>
-      <label>Job title<input name="job_title" required minLength={2} maxLength={120} defaultValue={employee?.job_title} /></label>
+      <label>{t("Job title")}<input name="job_title" required minLength={2} maxLength={120} defaultValue={employee?.job_title} /></label>
       {departments.data
-        ? <SelectId label="Department" name="department_id" items={departments.data.filter((item) => item.is_active)} required={false} defaultValue={employee?.department_id ?? undefined} />
-        : <label>Department ID<input name="department_id" type="number" min={1} defaultValue={employee?.department_id ?? undefined} /></label>}
-      <label>Manager ID<input name="manager_id" type="number" min={1} defaultValue={employee?.manager_id ?? undefined} /></label>
+        ? <SelectId label={t("Department")} name="department_id" items={departments.data.filter((item) => item.is_active)} required={false} defaultValue={employee?.department_id ?? undefined} />
+        : <label>{t("Department ID")}<input name="department_id" type="number" min={1} defaultValue={employee?.department_id ?? undefined} /></label>}
+      <label>{t("Manager ID")}<input name="manager_id" type="number" min={1} defaultValue={employee?.manager_id ?? undefined} /></label>
       {groups.data ? <fieldset className="iam-groups">
-        <legend>{operation === "mover" ? "Resulting memberships" : "Initial memberships"}</legend>
+        <legend>{operation === "mover" ? t("Resulting memberships") : t("Initial memberships")}</legend>
         {groups.data.filter((item) => item.is_active).map((group) => (
           <label className="iam-checkbox" key={group.id}>
             <input name="groups" type="checkbox" value={group.id} defaultChecked={defaults.has(group.id)} /> {group.name}
           </label>
         ))}
-      </fieldset> : <label>Group IDs (comma-separated)<input name="group_ids" pattern="[1-9][0-9]*(,\\s*[1-9][0-9]*)*" defaultValue={[...defaults].join(", ")} /></label>}
+      </fieldset> : <label>{t("Group IDs (comma-separated)")}<input name="group_ids" pattern="[1-9][0-9]*(,\\s*[1-9][0-9]*)*" defaultValue={[...defaults].join(", ")} /></label>}
     </>;
   }
 
-  return <Page title="Identity Lifecycle">
+  return <Page title={t("Identity Lifecycle")}>
     <Feedback message={mutation.message} />
-    {successId && !mutation.message?.error && <p role="status">Employee reference #{successId}</p>}
-    <Panel title="Run lifecycle event">
-      <label>Event<select aria-label="Event" value={operation} onChange={(event) => {
+    {successId && !mutation.message?.error && <p role="status">{t("Employee reference #")}{successId}</p>}
+    <button className="primary-button" onClick={() => setOpen(true)}>{t("Run lifecycle event")}</button>
+    {open && <Drawer title={t("Run lifecycle event")} close={() => setOpen(false)}>
+      <Feedback message={mutation.message} />
+      <label>{t("Event")}<select aria-label={t("Event")} value={operation} onChange={(event) => {
         setOperation(event.target.value);
         setEmployeeId("");
         setSuccessId("");
       }}>
-        {allowed.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+        {allowed.map((item) => <option key={item.value} value={item.value}>{t(item.label)}</option>)}
       </select></label>
       {operation !== "joiner" && <form className="iam-form" onSubmit={(event) => {
         event.preventDefault();
         setEmployeeId(String(new FormData(event.currentTarget).get("employee")));
         mutation.refresh();
       }}>
-        {employees.data ? <SelectId label="Employee" name="employee" items={employees.data
+        {employees.data ? <SelectId label={t("Employee")} name="employee" items={employees.data
           .filter((entry) => entry.id !== session.employeeId && (operation === "leaver" || entry.status === "active"))
           .map((entry) => ({ id: entry.id, name: `${entry.first_name} ${entry.last_name} (#${entry.id})` }))} />
-          : <label>Employee ID<input name="employee" type="number" min={1} required /></label>}
-        <button className="secondary-button">Load employee</button>
+          : <label>{t("Employee ID")}<input name="employee" type="number" min={1} required /></label>}
+        <button className="secondary-button">{t("Load employee")}</button>
       </form>}
       {operation === "joiner" && <form className="iam-form" onSubmit={submit}>
-        <label>Employee number<input name="employee_number" required minLength={2} maxLength={30} /></label>
-        <label>First name<input name="first_name" required minLength={2} maxLength={100} /></label>
-        <label>Last name<input name="last_name" required minLength={2} maxLength={100} /></label>
-        <label>Email<input name="email" type="email" required /></label>
+        <label>{t("Employee number")}<input name="employee_number" required minLength={2} maxLength={30} /></label>
+        <label>{t("First name")}<input name="first_name" required minLength={2} maxLength={100} /></label>
+        <label>{t("Last name")}<input name="last_name" required minLength={2} maxLength={100} /></label>
+        <label>{t("Email")}<input name="email" type="email" required /></label>
         {profileFields([])}
-        <button className="primary-button" disabled={mutation.busy}>Create employee</button>
+        <button className="primary-button" disabled={mutation.busy}>{t("Create employee")}</button>
       </form>}
       {employeeId && operation === "mover" && <QueryState result={memberships}>{(currentGroups) => (
         <form key={employeeId} className="iam-form" onSubmit={submit}>
-          <h3>Move employee #{employeeId}</h3>
-          <p>The selected memberships replace the employee&apos;s current memberships.</p>
+          <h3>{t("Move employee #")}{employeeId}</h3>
+          <p>{t("The selected memberships replace the employee's current memberships.")}</p>
           {profileFields(currentGroups)}
-          <button className="primary-button" disabled={mutation.busy}>Apply move</button>
+          <button className="primary-button" disabled={mutation.busy}>{t("Apply move")}</button>
         </form>
       )}</QueryState>}
       {employeeId && operation === "leaver" && <form key={employeeId} className="iam-form" onSubmit={submit}>
-        <h3>Offboard employee #{employeeId}</h3>
-        <p>This disables sign-in and revokes all group memberships.</p>
-        <label>Reason<textarea name="reason" required maxLength={1000} /></label>
-        <button className="primary-button" disabled={mutation.busy}>Offboard employee</button>
+        <h3>{t("Offboard employee #")}{employeeId}</h3>
+        <p>{t("This disables sign-in and revokes all group memberships.")}</p>
+        <label>{t("Reason")}<textarea name="reason" required maxLength={1000} /></label>
+        <button className="primary-button" disabled={mutation.busy}>{t("Offboard employee")}</button>
       </form>}
-    </Panel>
+    </Drawer>}
   </Page>;
 }

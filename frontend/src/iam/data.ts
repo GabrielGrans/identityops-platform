@@ -1,5 +1,6 @@
+import { locale, t } from "../i18n";
 import { useEffect, useState } from "react";
-import { ApiError, request } from "../services/api";
+import { ApiError, request, type Employee } from "../services/api";
 
 export interface Session {
   token: string;
@@ -48,10 +49,10 @@ export function useMutation(token: string) {
     try {
       await request(path, { method, body: body === undefined ? undefined : JSON.stringify(body) }, token);
       refresh();
-      setMessage({ text: "Changes saved.", error: false });
+      setMessage({ text: t("Changes saved."), error: false });
       return true;
     } catch (error) {
-      setMessage({ text: error instanceof Error ? error.message : "Request failed.", error: true });
+      setMessage({ text: error instanceof Error ? t(error.message) : t("Request failed."), error: true });
       return false;
     } finally {
       setBusy(false);
@@ -61,7 +62,7 @@ export function useMutation(token: string) {
 }
 
 export function displayTime(value: string) {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString(locale());
 }
 
 export function useCursor() {
@@ -76,3 +77,15 @@ export function useCursor() {
 }
 
 export const PAGE_SIZE = 25;
+
+export function employeeLabel(employee: Employee) {
+  return `${employee.first_name} ${employee.last_name} (${employee.employee_number})`;
+}
+
+export function provisioningStatus(status: string) {
+  const labels: Record<string, string> = {
+    direct_authorized: "Queued (administrator)", approved: "Queued",
+    executing: "Processing", succeeded: "Completed", failed: "Failed",
+  };
+  return t(labels[status] ?? status);
+}

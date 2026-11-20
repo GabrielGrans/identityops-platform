@@ -69,6 +69,9 @@ LABELS = {
     "entra.link.removed": "Entra mapping removed",
     "employee.create": "Employee created",
     "employee.update": "Employee updated",
+    "employee.activate": "Employee activated",
+    "employee.password.set": "Employee password set",
+    "employee.password.reset": "Employee password reset",
     "employee.deactivate": "Employee deactivated",
     "department.create": "Department created",
     "department.update": "Department updated",
@@ -82,6 +85,7 @@ LABELS = {
     "system.admin.bootstrapped": "Administrator initialized",
     "system.password.configured": "Local credentials configured",
     "system.permissions.seeded": "Default permissions seeded",
+    "governance.policy.updated": "Governance policy updated",
 }
 
 

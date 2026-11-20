@@ -74,7 +74,7 @@ def test_zero_counts_inventory_and_migration_index(client, db_session, admin_tok
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["employees"] == {"active": 2, "inactive": 1}
-    assert data["departments"] == {"active": 1, "inactive": 0}
+    assert data["departments"] == {"active": 8, "inactive": 0}
     assert data["groups"] == {"active": 2, "inactive": 1}
     assert data["permissions"]["inactive"] == 1
     assert data["pending_requests"] == 0

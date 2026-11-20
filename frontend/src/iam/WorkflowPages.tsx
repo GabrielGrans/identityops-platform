@@ -1,5 +1,7 @@
+import { EntraChangeRequests } from "./EntraChangeRequests";
+import { t } from "../i18n";
 import { useState, type ReactNode } from "react";
-import { Feedback, Page, Panel, Pagination, QueryState, SelectId,  } from "./common";
+import { Drawer, DataTable, StatusBadge, Feedback, Page, Panel, Pagination, QueryState, SelectId,  } from "./common";
 import { type CatalogItem, type Session, displayTime, PAGE_SIZE, useCursor, useMutation, useQuery } from "./data";
 
 interface Workflow {
@@ -19,16 +21,25 @@ function WorkflowList({ rows, groupNames, actions }: {
   groupNames: Map<number, string>;
   actions?: (row: Workflow) => ReactNode;
 }) {
-  if (!rows.length) return <p>No records.</p>;
-  return <ul className="iam-list">{rows.map((row) => <li key={row.id}>
-    <div>
-      <strong>{groupNames.get(row.group_id) ?? `Group #${row.group_id}`}</strong>
-      <p>#{row.id} · Employee #{row.employee_id} · {row.status} · {displayTime(row.created_at)}</p>
-      {row.reason && <p>{row.reason}</p>}
-      {row.decided_at && <p>{row.decision_note} · {row.decided_by ? `Employee #${row.decided_by} · ` : ""}{displayTime(row.decided_at)}</p>}
-    </div>
-    {actions?.(row)}
-  </li>)}</ul>;
+  const [selected, setSelected] = useState<Workflow>();
+  const current = selected && rows.find(row => row.id === selected.id);
+  return <>
+    <DataTable label={t("Requests and reviews")} rows={rows} rowKey={row => row.id} columns={[
+      { label: t("Request ID"), render: row => <button className="secondary-button" onClick={() => setSelected(row)}>#{row.id}</button> },
+      { label: t("Employee"), render: row => `#${row.employee_id}` },
+      { label: t("Group"), render: row => groupNames.get(row.group_id) ?? `#${row.group_id}` },
+      { label: t("Status"), render: row => <StatusBadge>{t(row.status)}</StatusBadge> },
+      { label: t("Date"), render: row => displayTime(row.created_at) },
+    ]} />
+    {current && <Drawer title={`${t("Request details")} #${current.id}`} close={() => setSelected(undefined)}>
+      <p>{t("Employee")} #{current.employee_id} · {groupNames.get(current.group_id) ?? `#${current.group_id}`}</p>
+      <p>{t(current.status)} · {displayTime(current.created_at)}</p>
+      {current.reason && <p>{current.reason}</p>}
+      {current.decided_at && <p>{current.decision_note} · {current.decided_by ? `#${current.decided_by} · ` : ""}{displayTime(current.decided_at)}</p>}
+      {actions?.(current)}
+    </Drawer>}
+  </>;
+
 }
 
 function DecisionForm({ decisions, busy, onDecide }: {
@@ -39,17 +50,18 @@ function DecisionForm({ decisions, busy, onDecide }: {
     const fields = new FormData(event.currentTarget);
     onDecide(String(fields.get("decision")), String(fields.get("note")));
   }}>
-    <label>Decision<select aria-label="Decision" name="decision" defaultValue="" required>
-      <option value="">Select…</option>
-      {decisions.map((decision) => <option key={decision}>{decision}</option>)}
+    <label>{t("Decision")}<select aria-label={t("Decision")} name="decision" defaultValue="" required>
+      <option value="">{t("Select…")}</option>
+      {decisions.map((decision) => <option key={decision} value={decision}>{t(decision)}</option>)}
     </select></label>
-    <label>Decision note<input name="note" required maxLength={1000} /></label>
-    <button className="primary-button" disabled={busy}>Record decision</button>
+    <label>{t("Decision note")}<input name="note" required maxLength={1000} /></label>
+    <button className="primary-button" disabled={busy}>{t("Record decision")}</button>
   </form>;
 }
 
 export function RequestsPage({ session }: { session: Session }) {
   const mutation = useMutation(session.token);
+  const [createLocal, setCreateLocal] = useState(false);
   const mineCursor = useCursor();
   const queueCursor = useCursor();
   const { token, permissions } = session;
@@ -58,9 +70,12 @@ export function RequestsPage({ session }: { session: Session }) {
   const canApprove = permissions.includes("access:manage");
   const mine = useQuery<Workflow[]>(token, `/access-requests?limit=${PAGE_SIZE}${mineCursor.query}`, mutation.revision);
   const queue = useQuery<Workflow[]>(token, canApprove ? `/access-requests/queue?limit=${PAGE_SIZE}${queueCursor.query}` : null, mutation.revision);
-  return <Page title="Access Requests">
+  return <Page title={t("Access Requests")}>
+    <EntraChangeRequests session={session} />
+    <h2>{t("Employee self-service requests")}</h2>
     <Feedback message={mutation.message} />
-    <Panel title="Request group access">
+    <button className="secondary-button" onClick={() => setCreateLocal(true)}>{t("Request local group access")}</button>
+    {createLocal && <Drawer title={t("Request group access")} close={() => setCreateLocal(false)}>
       <QueryState result={catalog}>{(groups) => groups.length ? <form className="iam-form" onSubmit={async (event) => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -69,22 +84,23 @@ export function RequestsPage({ session }: { session: Session }) {
           group_id: Number(fields.get("group")), reason: fields.get("reason"),
         })) {
           form.reset();
+          setCreateLocal(false);
           mineCursor.reset();
           queueCursor.reset();
         }
       }}>
-        <SelectId label="Group" name="group" items={groups} />
-        <label>Business justification<textarea name="reason" required maxLength={1000} /></label>
-        <button className="primary-button" disabled={mutation.busy}>Submit request</button>
-      </form> : <p>No groups are currently accepting requests.</p>}</QueryState>
-    </Panel>
-    <Panel title="My requests">
+        <SelectId label={t("Group")} name="group" items={groups} />
+        <label>{t("Business justification")}<textarea name="reason" required maxLength={1000} /></label>
+        <button className="primary-button" disabled={mutation.busy}>{t("Submit request")}</button>
+      </form> : <p>{t("No groups are currently accepting requests.")}</p>}</QueryState>
+    </Drawer>}
+    <Panel title={t("My requests")}>
       <QueryState result={mine}>{(rows) => <>
         <WorkflowList rows={rows} groupNames={names} />
         <Pagination rows={rows} cursor={mineCursor} />
       </>}</QueryState>
     </Panel>
-    {canApprove && <Panel title="Approval queue">
+    {canApprove && <Panel title={t("Approval queue")}>
       <QueryState result={queue}>{(rows) => <>
         <WorkflowList rows={rows} groupNames={names} actions={(row) => row.employee_id !== session.employeeId && (
           <DecisionForm decisions={["approved", "rejected"]} busy={mutation.busy}
@@ -99,14 +115,17 @@ export function RequestsPage({ session }: { session: Session }) {
 export function ReviewsPage({ session }: { session: Session }) {
   const mutation = useMutation(session.token);
   const cursor = useCursor();
+  const [create, setCreate] = useState(false);
   const [status, setStatus] = useState("pending");
   const { token, permissions } = session;
   const groups = useQuery<CatalogItem[]>(token, permissions.includes("groups:read") ? "/groups" : null);
   const result = useQuery<Workflow[]>(token,
     `/access-reviews?limit=${PAGE_SIZE}${cursor.query}${status && `&status=${status}`}`, mutation.revision);
-  return <Page title="Access Reviews">
+  return <Page title={t("Access Reviews")}>
     <Feedback message={mutation.message} />
-    <Panel title="Open a membership review">
+    <button className="primary-button" onClick={() => setCreate(true)}>{t("Open a membership review")}</button>
+    {create && <Drawer title={t("Open a membership review")} close={() => setCreate(false)}>
+      <Feedback message={mutation.message} />
       <form className="iam-form" onSubmit={async (event) => {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
@@ -117,19 +136,19 @@ export function ReviewsPage({ session }: { session: Session }) {
           cursor.reset();
         }
       }}>
-        <label>Employee ID<input type="number" name="employee" required min={1} /></label>
-        {groups.data ? <SelectId label="Group" name="group" items={groups.data.filter((group) => group.is_active)} />
-          : <label>Group ID<input type="number" name="group" min={1} required /></label>}
-        <button className="primary-button" disabled={mutation.busy}>Open review</button>
+        <label>{t("Employee ID")}<input type="number" name="employee" required min={1} /></label>
+        {groups.data ? <SelectId label={t("Group")} name="group" items={groups.data.filter((group) => group.is_active)} />
+          : <label>{t("Group ID")}<input type="number" name="group" min={1} required /></label>}
+        <button className="primary-button" disabled={mutation.busy}>{t("Open review")}</button>
       </form>
-    </Panel>
-    <Panel title="Reviews">
-      <label>Status<select aria-label="Status" value={status} onChange={(event) => {
+    </Drawer>}
+    <Panel title={t("Reviews")}>
+      <label>{t("Status")}<select aria-label={t("Status")} value={status} onChange={(event) => {
         setStatus(event.target.value);
         cursor.reset();
       }}>
-        <option value="">All</option>
-        {["pending", "retained", "revoked", "superseded"].map((value) => <option key={value}>{value}</option>)}
+        <option value="">{t("All")}</option>
+        {["pending", "retained", "revoked", "superseded"].map((value) => <option key={value} value={value}>{t(value)}</option>)}
       </select></label>
       <QueryState result={result}>{(rows) => <>
         <WorkflowList rows={rows} groupNames={new Map(groups.data?.map((group) => [group.id, group.name]))}
@@ -156,38 +175,55 @@ interface AuditEvent {
 export function AuditPage({ session }: { session: Session }) {
   const cursor = useCursor();
   const [filters, setFilters] = useState("");
+  const [detail, setDetail] = useState<AuditEvent>();
   const result = useQuery<AuditEvent[]>(session.token, `/audit-events?limit=${PAGE_SIZE}${cursor.query}${filters}`);
-  return <Page title="Audit Logs">
-    <Panel title="Search events">
+  return <Page title={t("Audit Logs")}>
+    <Panel title={t("Search events")}>
       <form className="iam-form" onSubmit={(event) => {
         event.preventDefault();
         const values = new FormData(event.currentTarget);
         const params = new URLSearchParams();
-        for (const key of ["action", "actor_id"]) {
+        for (const key of ["query", "actor_id", "category", "start_on", "end_on", "outcome"]) {
           const value = String(values.get(key)).trim();
           if (value) params.set(key, value);
         }
         cursor.reset();
         setFilters(`&${params}`);
       }}>
-        <label>Action<input name="action" placeholder="request.approved" maxLength={80} /></label>
-        <label>Actor ID<input name="actor_id" type="number" min={1} /></label>
-        <button className="primary-button">Filter</button>
+        <label>{t("Event category")}<select name="category">
+          <option value="">{t("All categories")}</option>
+          <option value="entra_sync">{t("Entra synchronization")}</option>
+          <option value="entra_provisioning">{t("Entra provisioning")}</option>
+          <option value="governance">{t("Governance")}</option>
+          <option value="authorization">{t("Authorization")}</option>
+        </select></label>
+        <label>{t("Search actions")}<input name="query" type="search" placeholder="request.approved" maxLength={150} /></label>
+        <label>{t("Start date (UTC)")}<input name="start_on" type="date" /></label>
+        <label>{t("End date (UTC)")}<input name="end_on" type="date" /></label>
+        <label>{t("Recorded outcome")}<select name="outcome"><option value="">{t("All statuses")}</option>
+          {["succeeded", "failed", "approved", "rejected"].map(outcome => <option key={outcome} value={outcome}>{t(outcome)}</option>)}
+        </select></label>
+        <label>{t("Actor ID")}<input name="actor_id" type="number" min={1} /></label>
+        <button className="primary-button">{t("Filter")}</button>
       </form>
     </Panel>
-    <Panel title="Events">
-      <QueryState result={result}>{(rows) => <>
-        {rows.length ? <ul className="iam-list">{rows.map((row) => <li key={row.id}>
-          <div>
-            <strong>{row.action}</strong>
-            <p>{displayTime(row.created_at)} · {row.actor_id ? `Actor #${row.actor_id}` : "System"} · {row.target_type} #{row.target_id}</p>
-            {Object.keys(row.details).length > 0 && <details>
-              <summary>Event details</summary><pre>{JSON.stringify(row.details, null, 2)}</pre>
-            </details>}
-          </div>
-        </li>)}</ul> : <p>No events match the current filters.</p>}
+    <Panel title={t("Events")}>
+      <QueryState result={result}>{rows => <>
+        <DataTable label={t("Events")} rows={rows} rowKey={row => row.id} columns={[
+          { label: t("Action"), render: row => <button className="secondary-button" onClick={() => setDetail(row)}>{row.action}</button> },
+          { label: t("Date"), render: row => displayTime(row.created_at) },
+          { label: t("Actor ID"), render: row => row.actor_id ?? t("System") },
+          { label: t("Target"), render: row => `${row.target_type} ${row.target_id === null ? "" : "#" + row.target_id}` },
+        ]} />
         <Pagination rows={rows} cursor={cursor} />
       </>}</QueryState>
     </Panel>
+    {detail && <Drawer title={t("Event details")} close={() => setDetail(undefined)}>
+      <dl><dt>{t("Action")}</dt><dd>{detail.action}</dd>
+        <dt>{t("Date")}</dt><dd>{displayTime(detail.created_at)}</dd>
+        <dt>{t("Actor ID")}</dt><dd>{detail.actor_id ?? t("System")}</dd>
+        <dt>{t("Target")}</dt><dd>{detail.target_type} {detail.target_id}</dd></dl>
+      {Object.keys(detail.details).length > 0 && <pre>{JSON.stringify(detail.details, null, 2)}</pre>}
+    </Drawer>}
   </Page>;
 }

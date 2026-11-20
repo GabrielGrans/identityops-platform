@@ -1,0 +1,11 @@
+{
+  "identifier": "local-api",
+  "description": "Connect the main IdentityOps window to the local FastAPI service.",
+  "windows": ["main"],
+  "permissions": [
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "http://127.0.0.1:8000/*" }]
+    }
+  ]
+}

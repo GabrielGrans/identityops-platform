@@ -4,7 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
-## [1.1.0] (Unreleased)
+## [1.4.0] — Enterprise IAM & Windows Desktop Preview
+
+### English
+
+- Consolidated the Windows Desktop and employee/group administration milestones into a Tauri v2 client with an NSIS installer and shared Web frontend.
+- Redesigned the enterprise workspace with a collapsible sidebar, a minimal scrollbar, persistent English and Brazilian Portuguese preferences, tables and detail drawers.
+- Added verified IAM dashboard metrics and Analytics for access activity, identities, departments, risks and compliance.
+- Unified local and Entra directory workflows with explicit reconciliation, automatic worker synchronization and snapshot diagnostics.
+- Added configurable access governance, certification and policy evidence, controlled Graph provisioning, separate operator approvals, direct queue submission for authorized administrators, and auditable verification. Graph writes remain disabled by default.
+- Expanded PostgreSQL, authorization and Graph simulation coverage, and added native Windows installer builds to CI.
+
+### Português
+
+- Consolida o Windows Desktop e a administração de colaboradores e grupos em um cliente Tauri v2 com instalador NSIS e frontend compartilhado com a Web.
+- Redesenha a interface com sidebar recolhível, scrollbar minimalista, idioma persistente em português do Brasil e inglês, tabelas e painéis de detalhes.
+- Inclui métricas IAM verificadas no painel e análises de atividade de acesso, identidades, departamentos, riscos e conformidade.
+- Unifica os fluxos de diretório local e Entra com reconciliação explícita, sincronização automática pelo worker e diagnóstico de snapshots.
+- Inclui governança configurável, certificações e evidências de política, provisionamento controlado pelo Graph, aprovação separada para operadores, envio direto à fila por administradores autorizados e verificação auditável. A escrita no Graph vem desabilitada.
+- Amplia os testes com PostgreSQL, autorização e Graph simulado e inclui a compilação nativa do instalador Windows no CI.
+
+Atualize o banco e as permissões conforme o [guia de instalação](docs/RELEASE.md). Para avaliação / For evaluation.
+
+## [1.1.0] - 2026-11-18
 
 - Add preview and confirmed, local-only provisioning and linking for Microsoft Entra identities.
 - Validate person eligibility, snapshot freshness and duplicate normalized emails. Apply batches atomically with audit events and inactive defaults.

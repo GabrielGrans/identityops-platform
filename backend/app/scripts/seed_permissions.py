@@ -9,7 +9,26 @@ from backend.app.services.access_state import lock_group, reset_group_policy
 from backend.app.services.audit_service import record_event
 
 
+DIRECT_PERMISSION = {
+    "name": "Direct Entra provisioning", "code": "entra:direct_provision", "resource": "entra",
+    "action": "direct_provision", "description": "Queue supported changes as a platform administrator.",
+}
+
 PERMISSIONS = [
+    {"name": "Entra approve change", "code": "entra:approve_change", "resource": "entra",
+     "action": "approve_change", "description": "Controlled Entra membership requests."},
+    {"name": "Entra request change", "code": "entra:request_change", "resource": "entra",
+     "action": "request_change", "description": "Controlled Entra membership requests."},
+    {"name": "Governance manage", "code": "governance:manage", "resource": "governance",
+     "action": "manage", "description": "Enterprise governance findings and policy."},
+    {"name": "Governance read", "code": "governance:read", "resource": "governance",
+     "action": "read", "description": "Enterprise governance findings and policy."},
+    {"name": "Delegate Elevated Access", "code": "access:delegate", "resource": "access", "action": "delegate",
+     "description": "Allows delegation beyond permissions currently held, subject to operation-specific authorization."},
+
+    {"name": "Administer Employee Passwords", "code": "employees:reset_password", "resource": "employees", "action": "reset_password",
+     "description": "Set or reset local employee passwords within authorized scope."},
+
     {
         "name": "View Employees",
         "code": "employees:read",
@@ -150,7 +169,10 @@ def assign_default_permissions(db: Session, admin_group: Group):
     created_count = 0
     assigned_count = 0
     reactivated_ids = []
-    for definition in PERMISSIONS:
+    definitions = PERMISSIONS
+    if admin_group.code == "IT_ADMINS" and admin_group.name == "IT Administrators":
+        definitions = [*definitions, DIRECT_PERMISSION]
+    for definition in definitions:
         permission = db.scalar(select(Permission).where(Permission.code == definition["code"]))
         if permission is None:
             permission = Permission(**definition)

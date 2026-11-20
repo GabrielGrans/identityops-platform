@@ -160,6 +160,8 @@ def test_data(db_session):
         ("Manage Departments", "departments:manage", "departments", "manage"),
         ("Read Groups", "groups:read", "groups", "read"),
         ("Manage Groups", "groups:manage", "groups", "manage"),
+        ("Delegate Elevated Access", "access:delegate", "access", "delegate"),
+        ("Administer Employee Passwords", "employees:reset_password", "employees", "reset_password"),
         ("Manage Access Assignments", "access:manage", "access", "manage"),
         ("Read Permissions", "permissions:read", "permissions", "read"),
         ("Manage Permissions", "permissions:manage", "permissions", "manage"),

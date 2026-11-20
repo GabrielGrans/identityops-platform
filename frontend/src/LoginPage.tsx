@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { useState, type FormEvent } from "react";
 import { LockKeyhole, Mail } from "lucide-react";
 import { Brand, BrandCredit } from "./Brand";
@@ -25,7 +26,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
       setError(
         err instanceof Error
           ? err.message
-          : "Unable to sign in. Please try again.",
+          : t("Unable to sign in. Please try again."),
       );
     } finally {
       setLoading(false);
@@ -38,18 +39,18 @@ function LoginPage({ onLogin }: LoginPageProps) {
         <Brand className="grans-login" />
 
         <div className="login-heading">
-          <h1>Welcome back</h1>
-          <p>Sign in to access your identity management workspace.</p>
+          <h1>{t("Welcome back")}</h1>
+          <p>{t("Sign in to access your identity management workspace.")}</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
-          <label htmlFor="login-email">Email address</label>
+          <label htmlFor="login-email">{t("Email address")}</label>
           <div className="login-input-wrap">
             <Mail size={18} />
             <input
               id="login-email"
               type="email"
-              placeholder="name@company.com"
+              placeholder={t("name@company.com")}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="username"
@@ -57,13 +58,13 @@ function LoginPage({ onLogin }: LoginPageProps) {
             />
           </div>
 
-          <label htmlFor="login-password">Password</label>
+          <label htmlFor="login-password">{t("Password")}</label>
           <div className="login-input-wrap">
             <LockKeyhole size={18} />
             <input
               id="login-password"
               type="password"
-              placeholder="Enter your password"
+              placeholder={t("Enter your password")}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="current-password"
@@ -82,7 +83,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
             type="submit"
             disabled={loading}
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? t("Signing in...") : t("Sign in")}
           </button>
         </form>
 
