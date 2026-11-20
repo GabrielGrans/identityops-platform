@@ -6,7 +6,7 @@
 
 Engineered by Gabriel Grans
 
-[![Release](https://img.shields.io/badge/Release-v1.1.0-success)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.1.0)
+[![v1.4.0 Preview](https://img.shields.io/badge/Release-v1.4.0%20Preview-b42318)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.4.0)
 [![CI](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-FastAPI-blue)
 ![React](https://img.shields.io/badge/React-TypeScript-3178C6)
@@ -16,13 +16,15 @@ Engineered by Gabriel Grans
 
 **English | Português**
 
-### Latest Release — v1.1.0
+### v1.4.0 Preview
 
-**English.** The published release introduces Microsoft Entra ID Identity Reconciliation.
+**English.** Evaluate enterprise IAM from the Web or the Windows Desktop client. The client requires a running FastAPI API and PostgreSQL. Automatic Microsoft Entra synchronization requires the server-side worker. This preview is for evaluation and has yet to be qualified for production.
 
-**Português.** A release publicada introduz a reconciliação de identidades do Microsoft Entra ID.
+**Português.** Avalie o IAM corporativo pela Web ou pelo cliente Windows Desktop. O cliente depende da API FastAPI e do PostgreSQL em execução. A sincronização automática com o Microsoft Entra exige o worker no servidor. Esta pré-release é destinada à avaliação e ainda aguarda homologação para produção.
 
-[Official Release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.1.0) · [Docker Package](https://github.com/GabrielGrans/identityops-platform/releases/download/v1.1.0/identityops-1.1.0-linux-amd64.tar) · [Installation Guide](docs/RELEASE.md) · [IAM Guide](docs/IAM.md) · [Entra ID Guide](docs/ENTRA_ID.md) · [Access Certification Guide](docs/CERTIFICATION.md) · [Dashboard Guide](docs/DASHBOARD.md)
+[GitHub Pre-release](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.4.0) · [Windows and Docker installation / Instalação Windows e Docker](docs/RELEASE.md) · [IAM](docs/IAM.md) · [Microsoft Entra](docs/ENTRA_AUTOMATION.md) · [Analytics / Análises](docs/ENTERPRISE_UI.md) · [Previous stable release / Release estável anterior](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.1.0)
+
+![IAM Governance Dashboard with evaluation data / Painel de governança IAM com dados de avaliação](docs/assets/v140-dashboard.png)
 
 ---
 
@@ -30,11 +32,7 @@ Engineered by Gabriel Grans
 
 ## Overview
 
-IdentityOps is an Identity and Access Management (IAM) platform designed to centralize identity administration, access control, role-based permissions, and employee lifecycle management.
-
-The project demonstrates practical software engineering and enterprise IAM concepts, combining backend development, frontend development, authentication, authorization, database management, and infrastructure.
-
-Its architecture is designed to support identity governance processes, including employee administration, access group management, granular permissions, and controlled access assignment.
+IdentityOps is a bilingual IAM administration platform for managing employee identities, local access and Microsoft Entra security-group memberships. The Web and Windows Desktop workspaces bring access decisions, verified provisioning outcomes and governance evidence together under role-based access control.
 
 ## Current Features
 
@@ -52,16 +50,13 @@ Its architecture is designed to support identity governance processes, including
 - **Access Assignment Protection:** Restrict employee membership and group permission assignments to authorized users.
 - **Privilege Escalation Protection:** Enforce backend authorization rules and include regression tests for unauthorized access attempts.
 
-### Frontend
-- **React + TypeScript:** Web interface for IAM administration.
-- **Administrative Dashboard:** Permission-scoped inventory, governance and security indicators from the local IAM database.
-- **Employee Management Interface:** Frontend integration with the employee API.
-- **IAM Navigation:** Structured navigation for identity, access, and governance modules.
+### IAM workspace
 
-The workspace includes group, permission and department administration, membership assignments,
-access requests, approval queues, lifecycle events, access reviews and audit search.
-See the [IAM operator guide](docs/IAM.md).
-
+- **Web and Desktop.** React and Tauri v2 share a dark, bilingual interface with collapsible navigation and an NSIS installer for Windows.
+- **Dashboard and Analytics.** See verified grants and revocations, active Entra accounts, open findings, provisioning outcomes and department distributions. Historical views use recorded evidence.
+- **Unified directory.** Explore Entra and local identities and groups, review direct memberships, and preview explicit local reconciliation.
+- **Access workflows.** Submit and review requests, manage lifecycle events, certify memberships and investigate audit events.
+- **Microsoft Graph.** A server worker imports directory snapshots and executes approved changes for allowlisted security groups when writeback is explicitly enabled. Authorized administrators can submit eligible requests directly to the queue. The worker verifies membership after execution.
 ### Infrastructure & Quality
 - **PostgreSQL:** Relational database integration.
 - **SQLAlchemy ORM:** Database models and persistence.
@@ -75,7 +70,8 @@ See the [IAM operator guide](docs/IAM.md).
 |---|---|
 | Backend | Python, FastAPI |
 | Frontend | React, TypeScript, Vite |
-| Database | PostgreSQL |
+| Windows Desktop | Tauri v2, Rust, WebView2, NSIS |
+| Database | PostgreSQL 17 |
 | ORM | SQLAlchemy |
 | Authentication | JWT |
 | Password Hashing | Argon2 |
@@ -183,7 +179,7 @@ docker compose up -d
 ### 6. Apply database migrations and start the backend API
 
 Run `python -m backend.app.scripts.migrate --bootstrap` for a new database.
-Use `python -m backend.app.scripts.migrate` for an existing v0.8.0 database.
+Use `python -m backend.app.scripts.migrate` for an existing database after making a backup.
 
 ```powershell
 python -m uvicorn backend.app.main:app --reload
@@ -261,20 +257,7 @@ Docker images for controlled deployment. See the [release guide](docs/RELEASE.md
 
 ## Project Status
 
-**Upcoming version: v1.4.0**
-
-The upcoming release consolidates the unpublished v1.2.0 Windows Desktop (Tauri v2) and v1.3.0 employee and group administration work. [Windows validation and installation](docs/RELEASE.md#windows-desktop)
-
-Authorized administrators can preview and confirm local Employee creation or explicit linking from a synchronized Entra snapshot. Synchronization never creates Employees.
-
-The governance dashboard brings together current IAM counts and recorded activity. [Dashboard and metric guide](docs/DASHBOARD.md)
-
-Access certification campaigns capture local memberships for assigned reviewers to retain or revoke with a recorded justification. [Campaign guide](docs/CERTIFICATION.md)
-
-IdentityOps is an active development project.
-
-This version adds operational identity governance on the existing FastAPI, PostgreSQL and React stack.
-Microsoft Entra ID can import a read-only snapshot of users, groups and direct user memberships. The module includes manual local mappings, audit events and refresh history. See the [integration guide](docs/ENTRA_ID.md).
+**v1.4.0 Preview** consolidates the Windows Desktop and employee/group administration milestones with Entra automation and the enterprise IAM workspace. The preview uses direct Entra memberships and current directory snapshots. Historical risk and directory growth trends require snapshots that are currently unavailable. Graph writeback defaults to disabled. See the [installation guide and limitations](docs/RELEASE.md#windows-desktop).
 
 ---
 
@@ -282,11 +265,7 @@ Microsoft Entra ID can import a read-only snapshot of users, groups and direct u
 
 ## Visão Geral
 
-O IdentityOps é uma plataforma de Identity and Access Management (IAM) desenvolvida para centralizar a administração de identidades, controle de acessos, permissões baseadas em funções e gerenciamento do ciclo de vida dos colaboradores.
-
-O projeto demonstra conceitos práticos de engenharia de software e IAM corporativo, combinando desenvolvimento backend, frontend, autenticação, autorização, gerenciamento de banco de dados e infraestrutura.
-
-Sua arquitetura foi projetada para suportar processos de governança de identidades, incluindo administração de colaboradores, gerenciamento de grupos de acesso, permissões granulares e atribuição controlada de acessos.
+O IdentityOps é uma plataforma bilíngue de administração IAM para gerenciar identidades de colaboradores, acessos locais e vínculos com grupos de segurança do Microsoft Entra. As interfaces Web e Windows Desktop reúnem decisões de acesso, resultados verificados de provisionamento e evidências de governança sob controle de acesso por funções.
 
 ## Funcionalidades Implementadas
 
@@ -304,16 +283,13 @@ Sua arquitetura foi projetada para suportar processos de governança de identida
 - **Proteção na Atribuição de Acessos:** Restringir a associação de colaboradores a grupos e a atribuição de permissões a usuários autorizados.
 - **Proteção contra Escalação de Privilégios:** Aplicar regras de autorização no backend e validar tentativas de acesso não autorizado por meio de testes automatizados.
 
-### Frontend
-- **React + TypeScript:** Interface web para administração da plataforma IAM.
-- **Dashboard Administrativo:** Inventário e indicadores de governança e segurança do banco IAM local, conforme as permissões do usuário.
-- **Gerenciamento de Colaboradores:** Interface integrada à API de colaboradores.
-- **Navegação IAM:** Estrutura de navegação para módulos de identidade, acesso e governança.
+### Espaço de trabalho IAM
 
-O workspace inclui administração de grupos, permissões e departamentos, atribuição de grupos,
-solicitações e aprovações, ciclo de vida, revisões de acesso e consulta à auditoria.
-Consulte o [guia de operação de IAM](docs/IAM.md).
-
+- **Web e Desktop.** React e Tauri v2 compartilham uma interface escura e bilíngue, com navegação recolhível e instalador NSIS para Windows.
+- **Painel e Análises.** Consulte concessões e revogações verificadas, contas ativas do Entra, achados em aberto, resultados de provisionamento e distribuição por departamento. As consultas históricas usam evidências registradas.
+- **Diretório unificado.** Explore identidades e grupos locais e do Entra, consulte vínculos diretos e revise a prévia da reconciliação local explícita.
+- **Fluxos de acesso.** Envie e avalie solicitações, gerencie eventos de ciclo de vida, certifique vínculos e investigue eventos de auditoria.
+- **Microsoft Graph.** Um worker no servidor importa snapshots e executa alterações aprovadas em grupos de segurança autorizados quando a escrita é habilitada explicitamente. Administradores autorizados podem encaminhar solicitações elegíveis diretamente para a fila. O worker verifica o vínculo após a execução.
 ### Infraestrutura e Qualidade
 - **PostgreSQL:** Integração com banco de dados relacional.
 - **SQLAlchemy ORM:** Modelagem e persistência de dados.
@@ -327,7 +303,8 @@ Consulte o [guia de operação de IAM](docs/IAM.md).
 |---|---|
 | Backend | Python, FastAPI |
 | Frontend | React, TypeScript, Vite |
-| Banco de Dados | PostgreSQL |
+| Windows Desktop | Tauri v2, Rust, WebView2, NSIS |
+| Banco de Dados | PostgreSQL 17 |
 | ORM | SQLAlchemy |
 | Autenticação | JWT |
 | Hash de Senhas | Argon2 |
@@ -435,7 +412,7 @@ docker compose up -d
 ### 6. Aplicar as migrações e iniciar a API
 
 Em um banco novo, execute `python -m backend.app.scripts.migrate --bootstrap`.
-Em um banco v0.8.0 existente, execute `python -m backend.app.scripts.migrate`.
+Em um banco existente, faça backup e execute `python -m backend.app.scripts.migrate`.
 
 ```powershell
 python -m uvicorn backend.app.main:app --reload
@@ -513,20 +490,7 @@ O fluxo manual gera imagens Docker para implantação controlada. Consulte o [gu
 
 ## Status do Projeto
 
-**Próxima versão: v1.4.0**
-
-A próxima release consolida o Desktop Windows com Tauri v2 (v1.2.0) e a administração de colaboradores e grupos (v1.3.0), desenvolvidos em branches intermediárias. [Homologação e instalação no Windows](docs/RELEASE.md#windows-desktop)
-
-Administradores autorizados podem revisar e confirmar a criação de colaboradores locais ou vincular registros existentes. A sincronização não cria colaboradores.
-
-O painel de governança reúne indicadores atuais de IAM e atividades registradas. [Guia do painel e métricas](docs/DASHBOARD.md)
-
-As campanhas de certificação capturam as associações locais para que revisores designados mantenham ou revoguem acessos com justificativa. [Guia de campanhas](docs/CERTIFICATION.md)
-
-O IdentityOps está em desenvolvimento ativo.
-
-Esta versão adiciona governança de identidades à arquitetura existente de FastAPI, PostgreSQL e React.
-A integração de leitura com Microsoft Entra ID importa usuários, grupos e membros diretos, com vínculos manuais, auditoria e histórico. Consulte o [guia de integração](docs/ENTRA_ID.md).
+**v1.4.0 Preview** consolida o Windows Desktop e a administração de colaboradores e grupos com a automação Entra e o espaço de trabalho IAM corporativo. A pré-release usa vínculos diretos e snapshots atuais do diretório. Tendências históricas de risco e de crescimento exigem snapshots ainda indisponíveis. A escrita no Graph vem desabilitada. Consulte o [guia de instalação e limitações](docs/RELEASE.md#windows-desktop).
 
 ---
 

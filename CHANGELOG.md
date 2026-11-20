@@ -4,23 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
-## [1.4.0] (Unreleased)
+## [1.4.0] — Enterprise IAM & Windows Desktop Preview
 
-**English.** Consolidates the unpublished v1.2.0 and v1.3.0 development milestones into one release.
+### English
 
-- Windows Desktop with Tauri v2 and an NSIS installer, using the existing React frontend and local FastAPI service.
-- Employee and group administration with transactional onboarding, Argon2 password administration, scoped delegation, and audit events.
+- Consolidated the Windows Desktop and employee/group administration milestones into a Tauri v2 client with an NSIS installer and shared Web frontend.
+- Redesigned the enterprise workspace with a collapsible sidebar, a minimal scrollbar, persistent English and Brazilian Portuguese preferences, tables and detail drawers.
+- Added verified IAM dashboard metrics and Analytics for access activity, identities, departments, risks and compliance.
+- Unified local and Entra directory workflows with explicit reconciliation, automatic worker synchronization and snapshot diagnostics.
+- Added configurable access governance, certification and policy evidence, controlled Graph provisioning, separate operator approvals, direct queue submission for authorized administrators, and auditable verification. Graph writes remain disabled by default.
+- Expanded PostgreSQL, authorization and Graph simulation coverage, and added native Windows installer builds to CI.
 
-**Português.** Consolida as versões intermediárias v1.2.0 e v1.3.0 em uma única release.
+### Português
 
-- Aplicativo Windows com Tauri v2 e instalador NSIS, usando o frontend React e o serviço FastAPI local.
-- Administração de colaboradores e grupos, cadastro transacional, senhas Argon2, delegação com escopo e auditoria.
+- Consolida o Windows Desktop e a administração de colaboradores e grupos em um cliente Tauri v2 com instalador NSIS e frontend compartilhado com a Web.
+- Redesenha a interface com sidebar recolhível, scrollbar minimalista, idioma persistente em português do Brasil e inglês, tabelas e painéis de detalhes.
+- Inclui métricas IAM verificadas no painel e análises de atividade de acesso, identidades, departamentos, riscos e conformidade.
+- Unifica os fluxos de diretório local e Entra com reconciliação explícita, sincronização automática pelo worker e diagnóstico de snapshots.
+- Inclui governança configurável, certificações e evidências de política, provisionamento controlado pelo Graph, aprovação separada para operadores, envio direto à fila por administradores autorizados e verificação auditável. A escrita no Graph vem desabilitada.
+- Amplia os testes com PostgreSQL, autorização e Graph simulado e inclui a compilação nativa do instalador Windows no CI.
 
-- Add persisted English and Brazilian Portuguese UI preferences and a shared dark IAM theme.
-- Compare direct Entra and local memberships using the latest fresh directory snapshot and explicit mappings.
-- Add configurable governance findings with auditable policy changes and dashboard counts.
-
-**Governança empresarial.** Inclui idioma persistente em inglês e português do Brasil, tema IAM unificado, comparação de vínculos do Entra e achados configuráveis com auditoria. A atualização instala a migração `enterprise_governance_140` e atualiza as permissões do grupo administrador.
+Atualize o banco e as permissões conforme o [guia de instalação](docs/RELEASE.md). Para avaliação / For evaluation.
 
 ## [1.1.0] - 2026-11-18
 

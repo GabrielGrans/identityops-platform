@@ -1,4 +1,8 @@
-# IdentityOps 1.4.0
+# IdentityOps v1.4.0 Preview
+
+Pré-release pública para avaliação. A homologação em produção, em estações Windows reais e com tenants reais fica a cargo do ambiente de avaliação.
+
+Public pre-release for evaluation. Production qualification, installation on Windows workstations and real-tenant validation remain outside the verified CI and simulated Graph coverage.
 
 ## Pacote Docker
 
@@ -27,9 +31,19 @@ A interface fica em `http://127.0.0.1:8080` e a documentação OpenAPI em `http:
 
 ## Instalações existentes
 
-Faça backup do PostgreSQL antes da atualização e aponte a nova API para o mesmo banco de dados da instalação. A pilha Docker de release usa um volume próprio para instalações novas. Para atualizar a v1.0.1, execute `python -m backend.app.scripts.migrate` com a API nova e o banco existente. No Compose, use `docker compose run --rm --no-deps api python -m backend.app.scripts.migrate`. A revisão `provisioning_110` adiciona atributos ao snapshot Entra e garante a unicidade de e-mails locais normalizados. A migração interrompe o upgrade se já existirem e-mails duplicados. Em um banco de grande porte, programe uma janela de manutenção para aplicar o índice. Consulte o [guia do painel](DASHBOARD.md).
+Antes de atualizar, pare a API e o worker, preserve o `.env` em local seguro e faça um backup verificável do banco. Para o Compose local, substitua `identityops` abaixo pelos valores de `POSTGRES_USER` e `POSTGRES_DB` da instalação, respectivamente. Para o Compose de release, acrescente `-f compose.release.yml` ao comando e use o nome de contêiner retornado por `docker compose ps` em `docker cp`.
 
-Execute `python -m backend.app.scripts.seed_permissions` e sincronize o Entra novamente para atualizar os atributos e disponibilizar o fluxo de reconciliação. Consulte o [guia do painel](DASHBOARD.md) para saber quais permissões habilitam cada seção.
+```powershell
+docker compose exec -T postgres pg_dump -U identityops -d identityops -Fc -f /tmp/identityops-pre-v140.dump
+docker compose exec -T postgres pg_restore --list /tmp/identityops-pre-v140.dump
+docker cp identityops-postgres:/tmp/identityops-pre-v140.dump .\identityops-pre-v140.dump
+```
+
+Mantenha uma cópia protegida e teste a restauração em um banco separado. Configure a nova API para o mesmo banco da instalação. O Compose de release usa um volume independente para instalações novas.
+
+Execute `python -m backend.app.scripts.migrate` sem `--bootstrap` em bancos existentes e, em seguida, `python -m backend.app.scripts.seed_permissions`. No Compose, prefixe os comandos com `docker compose -f compose.release.yml run --rm --no-deps api`. A atualização da v1.1.0 aplica as revisões `enterprise_governance_140`, `entra_automation`, `unified_entra_directory` e `official_departments`. Revise as funções atribuídas e as permissões do grupo administrador após o seed. Antes de migrar de uma versão anterior à v1.1.0, verifique e-mails locais duplicados normalizados, pois a revisão `provisioning_110` exige unicidade.
+
+Depois de validar o login e a saúde do banco, reinicie o worker se a sincronização estiver configurada. Consulte o [guia de automação Entra](ENTRA_AUTOMATION.md).
 
 ## CI e entrega
 
@@ -51,22 +65,34 @@ Configure a integração opcional conforme o [guia Microsoft Entra ID](ENTRA_ID.
 
 ## Windows Desktop
 
-A v1.4.0 consolida o aplicativo Tauri v2 (v1.2.0) e a administração de colaboradores e grupos (v1.3.0). Para homologação, use Windows com Node.js 24, Rust stable/MSVC, Visual Studio Build Tools com C++ e Microsoft Edge WebView2.
-
-Na raiz do repositório, use o ambiente Python e o PostgreSQL configurados conforme o [README](../README.md). Em banco novo, inicialize o esquema com `migrate --bootstrap` e crie o administrador conforme o README. Em uma instalação existente, faça backup e execute a migração sem `--bootstrap`. Atualize as permissões do administrador e inicie a API.
+1. Use Windows x64 com Microsoft Edge WebView2, Python 3.12 e PostgreSQL 17. Docker Desktop é uma opção para rodar o PostgreSQL local. Node.js 24, Rust stable/MSVC e Visual Studio Build Tools com C++ são necessários para compilar o cliente a partir do código.
+2. Use o código da tag `v1.4.0` e configure o ambiente Python e o `.env` conforme o [README](../README.md). Em um banco novo, execute `python -m backend.app.scripts.migrate --bootstrap` e crie o administrador com `python -m backend.app.scripts.bootstrap_admin admin@example.com`. Em um banco existente, faça backup, migre sem `--bootstrap` e atualize as permissões conforme a seção anterior.
+3. Inicie a API local com `python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000`. Verifique `http://127.0.0.1:8000/health/database`.
+4. Baixe o instalador NSIS x64 e o arquivo de checksums na [pré-release v1.4.0](https://github.com/GabrielGrans/identityops-platform/releases/tag/v1.4.0). Compare a saída do PowerShell com o SHA-256 publicado antes de abrir o instalador.
 
 ```powershell
-python -m backend.app.scripts.migrate
-python -m backend.app.scripts.seed_permissions
-python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+Get-FileHash .\IdentityOps_1.4.0_x64-setup.exe -Algorithm SHA256
 ```
 
-Em outro terminal, execute o aplicativo Desktop. Para gerar o instalador NSIS, encerre o modo de desenvolvimento antes de iniciar o build.
+5. Abra o cliente pelo menu Iniciar e entre com as credenciais cadastradas na API. Mantenha a API e o PostgreSQL ativos durante o uso.
+6. Para sincronização automática, configure o [Microsoft Graph](ENTRA_AUTOMATION.md#app-registration-and-consent) no servidor e execute `python -m backend.app.scripts.entra_worker` em outro terminal. Guarde credenciais em um secret store ou no `.env` do servidor. Use o consentimento administrativo para as permissões de leitura do Graph e mantenha `ENTRA_WRITE_ENABLED=false`. Limite testes de escrita a grupos suportados em um tenant de teste, com aprovação explícita e allowlist.
+
+Para compilar o instalador localmente:
 
 ```powershell
 npm --prefix frontend ci
-npm --prefix frontend run desktop:dev
 npm --prefix frontend run desktop:build
 ```
 
-O instalador fica em `frontend\src-tauri\target\release\bundle\nsis\`. Ele instala o cliente Desktop, que requer a API local em `http://127.0.0.1:8000`. Na homologação, teste login, criação de colaborador com senha e grupo, permissões efetivas, edição de grupos e auditoria. O job `desktop` do GitHub Actions gera o instalador para teste como artefato de CI.
+A saída do build fica em `frontend/src-tauri/target/release/bundle/nsis/`. O instalador distribui o cliente, que acessa a API local em `http://127.0.0.1:8000`. Use a configuração de loopback para avaliar o cliente. Para validar a aplicação Web em Docker, siga a seção Pacote Docker.
+
+### Windows quick start (English)
+
+Use Windows x64 with Edge WebView2 and a local FastAPI service backed by PostgreSQL 17. Check out tag `v1.4.0` and configure the Python environment and server `.env` using the README. On a fresh database, run `migrate --bootstrap` and `bootstrap_admin`. For an existing database, back up and test restoration first, then run `migrate` and `seed_permissions`. Start FastAPI on `127.0.0.1:8000`, verify the installer with `Get-FileHash -Algorithm SHA256`, and run the NSIS setup. Start `python -m backend.app.scripts.entra_worker` separately for automatic Entra synchronization. Keep `ENTRA_WRITE_ENABLED=false` and use server-side secrets and scoped Graph read permissions. See the [Entra setup guide](ENTRA_AUTOMATION.md).
+
+### Limitações da pré-release / Preview limitations
+
+- O cliente Desktop depende da API e do banco em execução. A sincronização automática depende do worker no servidor.
+- O diretório usa vínculos diretos e snapshots. Tendências históricas de risco e de crescimento ainda dependem de snapshots históricos.
+- A validação com Graph simulado e o build Windows no CI cobrem os fluxos automatizados. Faça a homologação da instalação e do tenant separadamente.
+- The client needs the API and database running, and automatic Entra synchronization needs the worker. The directory uses direct memberships and snapshots. Historical risk and directory growth trends require historical snapshots. Perform workstation and tenant qualification separately.
