@@ -4,7 +4,7 @@ import EmployeesPage from "../EmployeesPage";
 import { request } from "../services/api";
 import { CatalogPage } from "./CatalogPage";
 import { DataTable, Drawer, Feedback, Page, Panel, QueryState, StatusBadge } from "./common";
-import { provisioningStatus, useMutation, useQuery, type Session } from "./data";
+import { displayTime, provisioningStatus, provisioningWriteMessage, useMutation, useQuery, type Session } from "./data";
 
 type Kind = "users" | "groups";
 type User = {
@@ -14,7 +14,7 @@ type User = {
 };
 type Group = {
   object_id: string; display_name: string | null; description: string | null;
-  membership_count: number; eligibility: "eligible" | "protected" | "unsupported"; synchronized: boolean;
+  membership_count: number; write_blocker: string | null; eligibility: "eligible" | "protected" | "unsupported"; synchronized: boolean;
 };
 type Pending = { id: number; user_object_id: string; group_object_id: string; status: string };
 type Result<T> = { items: T[]; next_after: number | null };
@@ -61,8 +61,8 @@ export function DirectoryWorkspace({ kind, session }: { kind: Kind; session: Ses
   </Page>;
   return <>
     {canReadEntra && canReadLocal && <div className="iam-actions directory-source" role="group" aria-label={t("Directory source")}>
-      <button className="secondary-button" aria-pressed={active === "entra"} onClick={() => setView("entra")}>Microsoft Entra ID</button>
-      <button className="secondary-button" aria-pressed={active === "local"} onClick={() => setView("local")}>{t("Local IdentityOps")}</button>
+      <button className="secondary-button" aria-pressed={active === "entra"} onClick={() => setView("entra")}>{t(kind === "groups" ? "Microsoft Entra ID Groups" : "Microsoft Entra ID")}</button>
+      <button className="secondary-button" aria-pressed={active === "local"} onClick={() => setView("local")}>{t(kind === "groups" ? "IdentityOps Groups" : "Local IdentityOps")}</button>
     </div>}
     {active === "entra" && canReadEntra ? <RemoteDirectory kind={kind} session={session} objectId={objectId} close={() => { history.replaceState(null, "", `#entra/${kind}`); setObjectId(undefined); }} />
       : kind === "users" ? <EmployeesPage token={session.token} employeeId={session.employeeId} />
@@ -72,7 +72,7 @@ export function DirectoryWorkspace({ kind, session }: { kind: Kind; session: Ses
 
 function RemoteDirectory({ kind, session, objectId, close }: { kind: Kind; session: Session; objectId?: string; close: () => void }) {
   const [revision, refresh] = useDirectoryRefresh();
-  return <Page title={t(kind === "users" ? "Employees" : "Access Groups")}>
+  return <Page title={t(kind === "users" ? "Employees" : "Microsoft Entra ID Groups")}>
     {objectId && <DirectoryDetails key={objectId} kind={kind} session={session}
       objectId={objectId} revision={revision} refresh={refresh} close={close} />}
     <Panel title={t(kind === "users" ? "Entra employees" : "Entra security groups")}>
@@ -85,7 +85,7 @@ function RemoteDirectory({ kind, session, objectId, close }: { kind: Kind; sessi
           { label: t("Job title"), render: user => user.job_title ?? "—" },
           { label: t("Status"), render: user => <StatusBadge>{t(!user.synchronized ? "Absent from snapshot" : user.account_enabled == null ? "Account status unavailable" : user.account_enabled ? "Active" : "Inactive")}</StatusBadge> },
         ]} />
-        : <SearchRows<Group> token={session.token} path={`${api}/groups`} revision={revision}
+        : <SearchRows<Group> token={session.token} path={`${api}/groups`} revision={revision} groupFilter
           label={t("Search groups")} columns={[
             { label: t("Group"), render: group => <a href={link("groups", group.object_id)}>{group.display_name ?? group.object_id}</a> },
             { label: t("Description"), render: group => group.description ?? "—" },
@@ -96,14 +96,16 @@ function RemoteDirectory({ kind, session, objectId, close }: { kind: Kind; sessi
   </Page>;
 }
 
-function SearchRows<T extends {object_id: string}>({ token, path, revision, label, render, columns, accountFilter, members = false }: {
-  token: string; path: string; revision: number; label: string; render?: (row: T) => React.ReactNode; columns?: { label: string; render: (row: T) => React.ReactNode }[]; accountFilter?: boolean; members?: boolean;
+function SearchRows<T extends {object_id: string}>({ token, path, revision, label, render, columns, accountFilter, groupFilter, members = false }: {
+  token: string; path: string; revision: number; label: string; render?: (row: T) => React.ReactNode; columns?: { label: string; render: (row: T) => React.ReactNode }[]; accountFilter?: boolean; groupFilter?: boolean; members?: boolean;
 }) {
   const [term, setTerm] = useState("");
   const [account, setAccount] = useState("");
+  const [classification, setClassification] = useState("");
   const [cursors, setCursors] = useState<number[]>([]);
   const params = new URLSearchParams({query: term, limit: "25"});
   if (account) params.set("account", account);
+  if (classification) params.set("classification", classification);
   if (cursors.length) params.set("after", String(cursors.at(-1)));
   const result = useQuery<Result<T> | { members: Result<T> }>(token, `${path}?${params}`, revision, true);
   return <>
@@ -118,6 +120,12 @@ function SearchRows<T extends {object_id: string}>({ token, path, revision, labe
       }}>
         <option value="">{t("All statuses")}</option>
         {["active", "disabled", "unknown"].map(value => <option key={value} value={value}>{t(value)}</option>)}
+      </select></label>}
+      {groupFilter && <label>{t("Group classification")}<select value={classification} onChange={event => {
+        setClassification(event.target.value); setCursors([]);
+      }}>
+        <option value="">{t("All statuses")}</option>
+        {["eligible", "protected", "unsupported"].map(value => <option key={value} value={value}>{t(value)}</option>)}
       </select></label>}
       <button className="secondary-button">{t("Search")}</button>
     </form>
@@ -161,8 +169,9 @@ function GroupRow({ group }: { group: Group }) {
     <div className="iam-actions">
       <Badge>Entra ID</Badge>
       <Badge>{t(group.synchronized ? "Synchronized" : "Absent from snapshot")}</Badge>
-      <Badge>{t(group.eligibility === "eligible" ? "Approval required" : group.eligibility === "protected" ? "Protected group" : "Unsupported operation")}</Badge>
+      <Badge>{t(group.eligibility === "eligible" ? "eligible" : group.eligibility === "protected" ? "Protected group" : "Unsupported operation")}</Badge>
       <Badge>{t("Direct members")}: {group.membership_count}</Badge>
+      {group.eligibility === "eligible" && group.write_blocker && <Badge>{provisioningWriteMessage(group.write_blocker)}</Badge>}
     </div>
   </div>;
 }
@@ -200,6 +209,8 @@ function DirectoryDetails({ kind, session, objectId, revision, refresh, close }:
         </div></li>)}</ul> : <p>{t("No records.")}</p>}
       </> : <>
         <GroupRow group={row} />
+        {(canRequest || session.permissions.includes("entra:approve_change")) &&
+          <GroupRequestHistory token={session.token} objectId={objectId} revision={revision} />}
         <SearchRows<User> token={session.token} path={`${api}/groups/${objectId}`} revision={revision} members
           label={t("Search members")} render={user => <><UserRow user={user} />
           {canRequest && row.eligibility === "eligible" && row.synchronized &&
@@ -217,11 +228,42 @@ function DirectoryDetails({ kind, session, objectId, revision, refresh, close }:
   </Drawer>;
 }
 
+function GroupRequestHistory({ token, objectId, revision }: { token: string; objectId: string; revision: number }) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<number>();
+  const [pages, setPages] = useState<number[]>([]);
+  const before = pages.at(-1);
+  const history = useQuery<{ id: number; status: string; user_object_id: string; created_at: string | null }[]>(token,
+    open ? `${governance}/requests?group_id=${objectId}${before ? `&before_id=${before}` : ""}` : null, revision);
+  const audit = useQuery<{ id: number; action: string; created_at: string; actor_id: number | null; verified_membership: boolean | null }[]>(
+    token, open && selected ? `${governance}/requests/${selected}/timeline` : null, revision);
+  return <details onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary>{t("Group request history")}</summary>
+    {open && <QueryState result={history}>{rows => <>
+      <DataTable label={t("Group request history")} rows={rows} rowKey={row => row.id} columns={[
+        { label: t("Request ID"), render: row => <button className="secondary-button" onClick={() => setSelected(row.id)}>#{row.id}</button> },
+        { label: t("Employee"), render: row => row.user_object_id },
+        { label: t("Status"), render: row => provisioningStatus(row.status) },
+        { label: t("Date"), render: row => row.created_at ? displayTime(row.created_at) : "—" },
+      ]} />
+      <button className="secondary-button" disabled={!before} onClick={() => { setSelected(undefined); setPages(pages.slice(0, -1)); }}>{t("Previous page")}</button>
+      <button className="secondary-button" disabled={rows.length < 50} onClick={() => { setSelected(undefined); setPages([...pages, rows[49].id]); }}>{t("Next page")}</button>
+      {selected && <section aria-label={t("Audit timeline")}>
+        <h3>{t("Audit timeline")} #{selected}</h3>
+        <QueryState result={audit}>{events => events.length ? <ol className="iam-list">{events.map(event =>
+          <li key={event.id}>{t(event.action)} · {displayTime(event.created_at)} · {event.actor_id ? `#${event.actor_id}` : t("System")}
+            {event.verified_membership !== null && ` · ${t("Graph verification")} · ${t(event.verified_membership ? "Present" : "Absent")}`}
+          </li>)}</ol> : <p>{t("No records.")}</p>}</QueryState>
+      </section>}
+    </>}</QueryState>}
+  </details>;
+}
+
 function MembershipProposal({ user, group, add, token, refresh, cancel }: {
   user: User; group: Group; add: boolean; token: string; refresh: () => void; cancel: () => void;
 }) {
   const mutation = useMutation(token);
-  const [preview, setPreview] = useState<{ snapshot_id: number; expected: boolean; direct_authorized: boolean }>();
+  const [preview, setPreview] = useState<{ snapshot_id: number; expected: boolean; direct_authorized: boolean; can_submit: boolean; write_blocker: string | null }>();
   const [justification, setJustification] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -247,7 +289,8 @@ function MembershipProposal({ user, group, add, token, refresh, cancel }: {
     {preview && <div>
       {preview.direct_authorized && <p>{t("Authorized administrator changes enter the execution queue directly.")}</p>}
       <p>{t("Membership in snapshot")}: {t(preview.expected ? "Present" : "Absent")} · {t("Snapshot ID")} #{preview.snapshot_id}</p>
-      <button className="primary-button" disabled={mutation.busy} onClick={async () => {
+      {!preview.can_submit && <p>{provisioningWriteMessage(preview.write_blocker)}</p>}
+      <button className="primary-button" disabled={mutation.busy || !preview.can_submit} onClick={async () => {
         if (await mutation.mutate(`${governance}/requests`, "POST", { ...draft, expected_snapshot_id: preview.snapshot_id })) {
           setPreview(undefined); refresh();
         }

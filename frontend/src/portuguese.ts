@@ -1,4 +1,13 @@
 export const portuguese: Record<string, string> = {
+  "This preview does not authorize a change.": "Esta prévia não autoriza alterações.",
+  "Synchronize the Entra directory before requesting a preview.": "Sincronize o diretório Entra antes de solicitar uma prévia.",
+  "This group is protected from membership changes.": "Este grupo está protegido contra alterações de associação.",
+  "This group is not on the Entra write allowlist.": "Este grupo não está na lista de escrita autorizada do Entra.",
+  "Entra writeback is disabled.": "A escrita no Entra está desabilitada.",
+  "Group request history": "Histórico de solicitações do grupo",
+  "Group classification": "Classificação do grupo",
+  "Microsoft Entra ID Groups": "Grupos do Microsoft Entra ID",
+  "IdentityOps Groups": "Grupos do IdentityOps",
   "ServiceNow simulations": "Simulações do ServiceNow",
   "Simulated": "Simulado",
   "Simulation completed without changing Microsoft Entra ID.": "Simulação concluída sem alterar o Microsoft Entra ID.",

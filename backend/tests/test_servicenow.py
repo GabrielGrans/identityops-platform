@@ -149,3 +149,22 @@ def test_servicenow_adapter_checks_authoritative_response(connected, migrated, m
     with pytest.raises(ServiceNowError) as error:
         fetch_approval(migrated, SYS_ID)
     assert error.value.status == (502 if problem == "redirect" else 409)
+
+
+def test_managed_credential_preview_is_read_only_without_write_allowlist(
+    client, db_session, connected, migrated, monkeypatch, admin_token,
+):
+    migrated.ENTRA_WRITE_ENABLED = False
+    migrated.ENTRA_WRITE_GROUP_IDS = ""
+    monkeypatch.setattr(servicenow, "fetch_approval", lambda *_: evidence())
+    body = {"sys_id": SYS_ID}
+    assert client.post(f"{PATH}/preview", headers=headers(admin_token), json=body).status_code == 401
+    assert client.post(f"{PATH}/preview", headers=headers(KEY), json=body | {"approved": True}).status_code == 422
+    response = client.post(f"{PATH}/preview", headers=headers(KEY), json=body)
+    assert response.status_code == 200 and response.json()["read_only"] is True
+    assert response.json()["can_submit"] is False
+    assert response.json()["expected"] is False
+    assert client.post(PATH, headers=headers(KEY), json=body).status_code == 409
+    assert db_session.scalar(select(func.count()).select_from(requests)) == 0
+    assert db_session.scalar(select(func.count()).select_from(changes)) == 0
+    assert not connected.writes

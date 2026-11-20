@@ -1,3 +1,4 @@
+from itertools import islice
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -9,7 +10,7 @@ from backend.app.api.routes.entra_automation import scope
 from backend.app.core.authorization import effective_permissions
 from backend.app.models.entra import EntraGroup, EntraMembership, EntraUser
 from backend.app.models.permission import Permission
-from backend.app.services.entra_access_queue import eligibility
+from backend.app.services.entra_access_queue import eligibility, group_protection, write_blocker
 from backend.app.services.entra_automation_tables import alerts, changes
 from backend.app.services.entra_service import utcnow
 
@@ -27,10 +28,18 @@ def searched(statement, query, fields):
     return statement
 
 
-def paged(db, statement, model, after, limit, serialize):
+def paged(db, statement, model, after, limit, serialize, predicate=None):
     if after is not None:
         statement = statement.where(model.id > after)
-    rows = db.scalars(statement.order_by(model.id).limit(limit + 1)).all()
+    statement = statement.order_by(model.id)
+    if predicate is None:
+        rows = db.scalars(statement.limit(limit + 1)).all()
+    else:
+        candidates = db.scalars(statement).yield_per(100)
+        try:
+            rows = list(islice(filter(predicate, candidates), limit + 1))
+        finally:
+            candidates.close()
     return {
         "items": [serialize(row) for row in rows[:limit]],
         "next_after": rows[limit - 1].id if len(rows) > limit else None,
@@ -48,11 +57,12 @@ def user_row(user):
     }
 
 
-def group_row(db, config, tenant, group):
+def group_row(db, config, group, protection):
     return {
         "source": "entra", "object_id": group.object_id, "display_name": group.display_name,
         "description": group.description, "synchronized": group.present,
-        "eligibility": eligibility(db, config, tenant, group),
+        "eligibility": eligibility(group, protection),
+        "write_blocker": write_blocker(config, group.object_id),
         "membership_count": db.scalar(select(func.count()).select_from(EntraMembership)
           .join(EntraUser).where(EntraMembership.group_id == group.id, EntraUser.present.is_(True))),
     }
@@ -99,7 +109,8 @@ def user_details(object_id: UUID, db: DB, config: Config, actor: Reader):
         .where(alerts.c.tenant == tenant, alerts.c.state != "resolved",
                alerts.c.payload["user_object_id"].as_string() == user.object_id)
         .order_by(alerts.c.key).limit(100)).mappings().all() if can_read_findings else []
-    return {**user_row(user), "groups": [group_row(db, config, tenant, group) for group in groups],
+    protection = group_protection(db, config, tenant)
+    return {**user_row(user), "groups": [group_row(db, config, group, protection) for group in groups],
             "pending": [dict(row) for row in pending(db, tenant, changes.c.user_object_id, user.object_id)],
             "findings": [dict(row) for row in findings]}
 
@@ -113,16 +124,20 @@ def user_groups(object_id: UUID, db: DB, config: Config, actor: Reader, query: S
         EntraMembership.user_id == user.id, EntraGroup.tenant_id == tenant, EntraGroup.present.is_(True),
         EntraGroup.security_enabled.is_(True),
     ), query, (EntraGroup.display_name, EntraGroup.description))
-    return paged(db, statement, EntraGroup, after, limit, lambda row: group_row(db, config, tenant, row))
+    protection = group_protection(db, config, tenant)
+    return paged(db, statement, EntraGroup, after, limit, lambda row: group_row(db, config, row, protection))
 
 
 @router.get("/groups")
-def groups(db: DB, config: Config, actor: Reader, query: Search = None, after: Cursor = None, limit: Limit = 25):
+def groups(db: DB, config: Config, actor: Reader, query: Search = None, after: Cursor = None, limit: Limit = 25,
+           classification: Literal["eligible", "protected", "unsupported"] | None = None):
     tenant = scope(db, config)
     statement = searched(select(EntraGroup).where(
         EntraGroup.tenant_id == tenant, EntraGroup.security_enabled.is_(True)),
         query, (EntraGroup.display_name, EntraGroup.description))
-    return paged(db, statement, EntraGroup, after, limit, lambda row: group_row(db, config, tenant, row))
+    protection = group_protection(db, config, tenant)
+    predicate = None if classification is None else lambda row: row.present and eligibility(row, protection) == classification
+    return paged(db, statement, EntraGroup, after, limit, lambda row: group_row(db, config, row, protection), predicate)
 
 
 @router.get("/groups/{object_id}")
@@ -134,7 +149,7 @@ def group_details(object_id: UUID, db: DB, config: Config, actor: Reader, query:
         EntraMembership.group_id == group.id, EntraUser.tenant_id == tenant, EntraUser.present.is_(True)),
         query, (EntraUser.display_name, EntraUser.mail, EntraUser.principal_name, EntraUser.department, EntraUser.job_title))
     return {
-        **group_row(db, config, tenant, group),
+        **group_row(db, config, group, group_protection(db, config, tenant)),
         "members": paged(db, statement, EntraUser, after, limit, user_row),
         "pending": [dict(row) for row in pending(db, tenant, changes.c.group_object_id, group.object_id)],
     }

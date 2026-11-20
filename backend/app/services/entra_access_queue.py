@@ -32,30 +32,26 @@ def recheck_servicenow(config, row, actor, permissions):
         raise GraphError("servicenow_approval_changed")
 
 
-def permitted_group(db, config, tenant, group_id):
-    def ids(value):
-        try:
-            return {str(UUID(key.strip())) for key in value.split(",") if key.strip()}
-        except ValueError:
-            return set()
+def configured_group_ids(value):
+    return {str(UUID(key.strip())) for key in value.split(",") if key.strip()}
 
-    allowed = ids(config.ENTRA_WRITE_GROUP_IDS)
-    protected = ids(config.ENTRA_PROTECTED_GROUP_IDS)
-    # Invalid protected configuration fails closed, including mixed valid/invalid input.
-    if config.ENTRA_PROTECTED_GROUP_IDS.strip() and not protected:
-        return False
+
+def group_protection(db, config, tenant):
+    try:
+        protected = configured_group_ids(config.ENTRA_PROTECTED_GROUP_IDS)
+    except ValueError:
+        protected = None  # Invalid protection configuration fails closed.
     rules = db.scalar(select(policies.c.rules).where(policies.c.tenant == tenant)) or {}
-    privileged = {group for rule in rules.get("roles", []) for group in rule.get("privileged", [])}
-    if not config.ENTRA_WRITE_ENABLED or group_id not in allowed or group_id in protected | privileged:
-        return False
-    local = db.scalar(select(EntraGroup.local_group_id).where(
-        EntraGroup.tenant_id == tenant, EntraGroup.object_id == group_id))
-    local_rules = db.scalar(select(policy_table.c.rules).where(policy_table.c.id == 1)) or {}
-    return all(group["group_id"] != local for group in local_rules.get("privileged_groups", []))
+    if protected is not None:
+        protected.update(group for role in rules.get("roles", []) for group in role.get("privileged", []))
+    local = db.scalar(select(policy_table.c.rules).where(policy_table.c.id == 1)) or {}
+    return protected, {group["group_id"] for group in local.get("privileged_groups", [])}
 
 
-def eligibility(db, config, tenant, group, *, allowed=None):
-    if group.role_assignable is True:
+def eligibility(group, protection):
+    protected, local_privileged = protection
+    if (protected is None or group.role_assignable is True or group.object_id in protected
+            or group.local_group_id in local_privileged):
         return "protected"
     if (
         group.management_metadata_complete is not True or group.security_enabled is not True
@@ -63,15 +59,29 @@ def eligibility(db, config, tenant, group, *, allowed=None):
         or group.on_premises_sync_enabled is True or group.group_types != []
     ):
         return "unsupported"
-    if allowed is None:
-        allowed = permitted_group(db, config, tenant, group.object_id)
-    return "eligible" if allowed else "protected"
+    return "eligible"
+
+
+def write_blocker(config, group_id, *, simulation=False):
+    if not simulation and not config.ENTRA_WRITE_ENABLED:
+        return "write_disabled"
+    try:
+        allowed = configured_group_ids(config.ENTRA_WRITE_GROUP_IDS)
+    except ValueError:
+        allowed = set()
+    return None if group_id in allowed else "group_not_allowlisted"
+
+
+def require_write_policy(config, group_id, *, simulation=False):
+    blocker = write_blocker(config, group_id, simulation=simulation)
+    if blocker:
+        raise GraphError(blocker)
 
 
 def preview(db, config, tenant, employee_id, group_id, add, user_id=None):
     snapshot = latest_snapshot(db, tenant)
-    if not snapshot_is_recent(snapshot) or not permitted_group(db, config, tenant, group_id):
-        raise GraphError("write_unsupported")
+    if not snapshot_is_recent(snapshot):
+        raise GraphError("snapshot_not_recent")
     user = db.scalar(select(EntraUser).where(
         EntraUser.object_id == user_id if user_id else EntraUser.local_employee_id == employee_id,
         EntraUser.tenant_id == tenant, EntraUser.present.is_(True), EntraUser.last_seen_run_id == snapshot.id,
@@ -81,8 +91,9 @@ def preview(db, config, tenant, employee_id, group_id, add, user_id=None):
     employee = db.get(Employee, user.local_employee_id) if user and user.local_employee_id else None
     if not user or not group or (employee_id is not None and user.local_employee_id != employee_id):
         raise GraphError("write_unsupported")
-    if user_id and eligibility(db, config, tenant, group, allowed=True) != "eligible":
-        raise GraphError("write_unsupported")
+    status = eligibility(group, group_protection(db, config, tenant))
+    if status != "eligible":
+        raise GraphError("group_protected" if status == "protected" else "write_unsupported")
     if add and (user.account_enabled is not True or (employee and employee.status != "active")):
         raise GraphError("write_unsupported")
     member = db.get(EntraMembership, (group.id, user.id)) is not None
@@ -134,6 +145,7 @@ def execute_due(db, config, tenant, make_client):
                 raise GraphError("write_unsupported")
             if actor_id == row.requester_id and request.get("servicenow"):
                 recheck_servicenow(config, row, employee, permissions)
+        require_write_policy(config, request["group_id"])
         target = preview(db, config, tenant, row.employee_id, request["group_id"], request["add"],
                          request["user_id"] if direct or request.get("remote_subject") else None)
         if not direct and target["employee_id"] == row.reviewer_id:

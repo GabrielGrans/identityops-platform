@@ -58,3 +58,13 @@ python -m backend.app.scripts.entra_worker
 Run these as separate processes, then start Desktop using `npm --prefix frontend ci` and `npm --prefix frontend run desktop:dev`. First validate read-only synchronization with a test tenant. Close the client and check the schedule and Audit Logs after reopening it. For a separately approved write test, create and preview a request for an allowlisted test group, approve using a different account, then verify the request state, membership and audit event.
 
 For synchronized Employees and Access Groups, immutable subjects without a local employee, and directory capabilities, see [Unified Entra directory](UNIFIED_ENTRA_DIRECTORY.md).
+
+## Prévia somente leitura e solicitação de escrita
+
+`POST /entra/automation/preview` exige autenticação de operador e a permissão `entra:request_change`. A prévia lê somente o snapshot PostgreSQL mais recente. Ela aceita `user_id` (Object ID Entra) ou `employee_id` (identidade local vinculada), além de `group_id`, `add` e `justification`. Inclua exatamente um identificador de pessoa. O grupo deve ser de segurança, gerenciado na nuvem, com metadados completos e fora das proteções do ambiente e das políticas IAM. A associação retornada em `expected` é a do snapshot, e não uma consulta em tempo real ao Graph.
+
+A prévia funciona com `ENTRA_WRITE_ENABLED=false` e `ENTRA_WRITE_GROUP_IDS` vazio. Nessa situação, `can_submit=false` e `write_blocker=write_disabled`. A API rejeita grupos protegidos, dinâmicos ou sincronizados do AD local, e snapshots expirados. Na tela Grupos de acesso, **Grupos do IdentityOps** administra grupos locais e suas permissões RBAC. **Grupos do Microsoft Entra ID** exibe o diretório sincronizado, os filtros de classificação, membros e o histórico das solicitações visíveis para o operador.
+
+A prévia e o `snapshot_id` não concedem autorização. A criação, a aprovação positiva e a execução voltam a verificar as condições de escrita e a allowlist. O worker verifica a classificação do grupo e a associação diretamente no Graph antes de escrever e confirma o resultado depois. PostgreSQL serializa solicitações abertas para o mesmo par usuário–grupo e o worker usa um bloqueio por tenant. Uma mudança externa entre a leitura e a escrita continua possível, pois o Graph e o PostgreSQL não compartilham uma transação.
+
+Para Flextrix e MID Server, use a [prévia dedicada do ServiceNow](SERVICENOW.md#prévia-flextrix-pelo-mid-server).

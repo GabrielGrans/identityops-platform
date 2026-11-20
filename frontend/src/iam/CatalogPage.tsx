@@ -7,7 +7,7 @@ import { DirectoryPagination, SearchChecks, SearchSelect } from "./DirectoryCont
 import { employeeLabel, PAGE_SIZE, type CatalogItem, type Session, useMutation, useQuery } from "./data";
 
 type Catalog = "groups" | "permissions" | "departments";
-const titles = { groups: "Access Groups", permissions: "Permissions", departments: "Departments" };
+const titles = { groups: "IdentityOps Groups", permissions: "Permissions", departments: "Departments" };
 
 export function CatalogPage({ catalog, session }: { catalog: Catalog; session: Session }) {
   const { token, permissions } = session;

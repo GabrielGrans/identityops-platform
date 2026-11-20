@@ -13,7 +13,7 @@ from backend.app.api.routes.entra_automation import enqueue, lock_code, scope
 from backend.app.core.authorization import effective_permissions, require_permission
 from backend.app.models.employee import Employee
 from backend.app.services.audit_service import record_event
-from backend.app.services.entra_access_queue import preview
+from backend.app.services.entra_access_queue import preview, require_write_policy
 from backend.app.services.entra_automation_tables import changes
 from backend.app.services.entra_service import utcnow
 from backend.app.services.graph_client import GraphError
@@ -93,6 +93,37 @@ def intake_status(sys_id: SysID, db: DB, config: Config):
     return result(db, row)
 
 
+def integration_actor(db, config):
+    actor = db.get(Employee, config.SERVICENOW_REQUESTER_ID) if config.SERVICENOW_REQUESTER_ID else None
+    if (not actor or actor.status != "active" or actor.password_hash is not None
+            or set(db.scalars(effective_permissions(actor.id))) != {"entra:request_change"}):
+        raise HTTPException(503, "Configure a dedicated ServiceNow intake actor.")
+    return actor
+
+
+def membership_preview(db, config, tenant, approval, actor):
+    result = preview(db, config, tenant, None, str(approval.group_object_id),
+                     approval.operation == "grant", str(approval.user_object_id))
+    if result["employee_id"] == actor.id:
+        raise HTTPException(409, "The integration identity cannot be the beneficiary.")
+    return result
+
+
+@router.post("/preview", dependencies=[Depends(integration_auth)])
+def preview_request(data: Intake, db: DB, config: Config):
+    tenant, _ = integration_scope(db, config)
+    actor = integration_actor(db, config)
+    try:
+        approval = fetch_approval(config, data.sys_id)
+        result = membership_preview(db, config, tenant, approval, actor)
+    except ServiceNowError as error:
+        raise HTTPException(error.status, str(error)) from None
+    except GraphError as error:
+        raise HTTPException(409, str(error)) from None
+    return {"sys_id": approval.sys_id, "ritm": approval.ritm, "snapshot_id": result["snapshot_id"],
+            "expected": result["expected"], "operation": approval.operation, "read_only": True, "can_submit": False}
+
+
 @router.post("", status_code=201, dependencies=[Depends(integration_auth)])
 def submit(data: Intake, response: Response, db: DB, config: Config):
     tenant, host = integration_scope(db, config)
@@ -111,19 +142,12 @@ def submit(data: Intake, response: Response, db: DB, config: Config):
     if row:
         response.status_code = 200
         return result(db, row)
-    actor = db.get(Employee, config.SERVICENOW_REQUESTER_ID) if config.SERVICENOW_REQUESTER_ID else None
-    if (not actor or actor.status != "active" or actor.password_hash is not None
-            or set(db.scalars(effective_permissions(actor.id))) != {"entra:request_change"}):
-        raise HTTPException(503, "Configure a dedicated ServiceNow intake actor.")
+    actor = integration_actor(db, config)
     try:
-        # Simulation validates the same directory restrictions without enabling any worker operation.
-        policy = config.model_copy(update={"ENTRA_WRITE_ENABLED": True}) if config.SERVICENOW_SIMULATION else config
-        request = preview(db, policy, tenant, None, str(approval.group_object_id), approval.operation == "grant",
-                          str(approval.user_object_id))
+        require_write_policy(config, str(approval.group_object_id), simulation=config.SERVICENOW_SIMULATION)
+        request = membership_preview(db, config, tenant, approval, actor)
     except GraphError as error:
         raise HTTPException(409, str(error)) from None
-    if request["employee_id"] == actor.id:
-        raise HTTPException(409, "The integration identity cannot be the beneficiary.")
     evidence = approval.model_dump(mode="json")
     change_id = None
     try:

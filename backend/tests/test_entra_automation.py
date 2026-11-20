@@ -51,7 +51,9 @@ class GraphFixture:
             else:
                 records = ([{"id": USER, "accountEnabled": True, "mail": "worker@example.com", "jobTitle": "Analyst"},
                             {"id": SECOND, "accountEnabled": True}] if users else
-                           [{"id": GROUP, "displayName": "Test security group", "securityEnabled": True}])
+                           [{"id": GROUP, "displayName": "Test security group", "securityEnabled": True,
+                             "mailEnabled": False, "groupTypes": [], "onPremisesSyncEnabled": None,
+                             "isAssignableToRole": False}])
             return httpx.Response(200, json={"value": records,
                 "@odata.deltaLink": f"{GRAPH}/{'users' if users else 'groups'}/delta?$deltatoken=checkpoint"})
         if path.endswith("/members"):

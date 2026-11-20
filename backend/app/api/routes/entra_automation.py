@@ -12,7 +12,7 @@ from backend.app.models.employee import Employee
 from backend.app.models.entra import EntraGroup, EntraUser
 from backend.app.models.governance import AuditEvent
 from backend.app.services.audit_service import record_event
-from backend.app.services.entra_access_queue import audit, preview
+from backend.app.services.entra_access_queue import audit, preview, require_write_policy, write_blocker
 from backend.app.services.entra_automation_tables import alerts, changes, policies, state
 from backend.app.services.entra_service import utcnow
 from backend.app.services.graph_client import GraphError
@@ -104,8 +104,10 @@ def schedule(db: DB, config: Config, actor: Reader):
     return dict(job) if job else {"next_run": None, "failures": 0}
 
 
-def check(db, config, tenant, data):
+def check(db, config, tenant, data, *, writing):
     try:
+        if writing:
+            require_write_policy(config, str(data.group_id))
         return preview(db, config, tenant, data.employee_id, str(data.group_id), data.add, str(data.user_id) if data.user_id else None)
     except GraphError as error:
         raise HTTPException(409, str(error)) from None
@@ -113,8 +115,10 @@ def check(db, config, tenant, data):
 
 @router.post("/preview")
 def preview_change(data: Change, db: DB, config: Config, actor: Requester):
-    result = check(db, config, scope(db, config), data)
-    return {**result, "direct_authorized": can_direct_provision(db, actor.id)}
+    result = check(db, config, scope(db, config), data, writing=False)
+    blocker = write_blocker(config, result["group_id"])
+    return {**result, "can_submit": blocker is None, "write_blocker": blocker,
+            "direct_authorized": blocker is None and can_direct_provision(db, actor.id)}
 
 
 @router.post("/requests", status_code=201)
@@ -122,14 +126,10 @@ def create_request(data: ConfirmedChange, db: DB, config: Config, actor: Request
     tenant = scope(db, config)
     if len(data.justification.strip()) < 8:
         raise HTTPException(422, "Provide a business justification.")
-    request = check(db, config, tenant, data)
+    request = check(db, config, tenant, data, writing=True)
     if request["snapshot_id"] != data.expected_snapshot_id:
         raise HTTPException(409, "The snapshot changed; preview the request again.")
     direct = can_direct_provision(db, actor.id)
-    if direct:
-        # Apply snapshot eligibility checks even when the caller uses the legacy employee selector.
-        check(db, config, tenant, Change(user_id=request["user_id"], group_id=data.group_id,
-                                         add=data.add, justification=data.justification))
     row = enqueue(db, tenant, actor.id, request, data.justification, direct)
     db.commit()
     return dict(row)
@@ -173,9 +173,11 @@ def visible_requests(db, actor, tenant):
 def list_requests(db: DB, config: Config, actor: AnyRequestOperator,
                   before_id: int | None = Query(None, gt=0),
                   query: str = Query("", max_length=150),
-                  status: str | None = Query(None, max_length=25)):
+                  status: str | None = Query(None, max_length=25), group_id: UUID | None = None):
     tenant = scope(db, config)
     statement = visible_requests(db, actor, tenant)
+    if group_id:
+        statement = statement.where(changes.c.group_object_id == str(group_id))
     fields = [cast(changes.c.id, String), changes.c.user_object_id, changes.c.group_object_id,
               changes.c.request["servicenow"]["ritm"].as_string()]
     if "entra:read" in set(db.scalars(effective_permissions(actor.id))):
@@ -233,7 +235,7 @@ def decide(id: int, data: Decision, db: DB, config: Config, actor: Approver):
     if data.approve:
         current = check(db, config, tenant, Change(employee_id=None if row.request.get("remote_subject") else row.employee_id,
                         user_id=row.request["user_id"] if row.request.get("remote_subject") else None, add=row.request["add"],
-                        group_id=row.request["group_id"], justification=row.request["justification"]))
+                        group_id=row.request["group_id"], justification=row.request["justification"]), writing=True)
         if current["employee_id"] == actor.id:
             raise HTTPException(403, "A different reviewer must approve this request.")
         if any(current[key] != row.request[key] for key in ("user_id", "expected")):

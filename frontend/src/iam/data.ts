@@ -104,3 +104,9 @@ export function provisioningStatus(status: string) {
   };
   return t(labels[status] ?? status);
 }
+
+export function provisioningWriteMessage(blocker: string | null | undefined) {
+  if (blocker === "write_disabled") return t("Entra writeback is disabled.");
+  if (blocker === "group_not_allowlisted") return t("This group is not on the Entra write allowlist.");
+  return t("This preview does not authorize a change.");
+}

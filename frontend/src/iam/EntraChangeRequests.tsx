@@ -2,13 +2,13 @@ import { useState, type FormEvent } from "react";
 import { t } from "../i18n";
 import { request } from "../services/api";
 import { CollapsiblePanel, DataTable, Drawer, Feedback, Panel, QueryState, StatusBadge } from "./common";
-import { displayTime, provisioningStatus, useMutation, useQuery, type Session } from "./data";
+import { displayTime, provisioningStatus, provisioningWriteMessage, useMutation, useQuery, type Session } from "./data";
 
 const endpoint = "/entra/automation";
 const statuses = ["pending", "direct_authorized", "approved", "executing", "succeeded", "failed", "conflict", "expired", "rejected"];
 type Subject = { user_id: string } | { employee_id: number };
 type Draft = Subject & { group_id: string; add: boolean; justification: string };
-interface Preview { user_id: string; group_id: string; expected: boolean; snapshot_id: number; direct_authorized: boolean }
+interface Preview { user_id: string; group_id: string; expected: boolean; snapshot_id: number; direct_authorized: boolean; can_submit: boolean; write_blocker: string | null }
 interface ServiceNowEvidence {
   ritm: string; sys_id: string; requester_id: string; beneficiary_id: string; approver_id: string; approval_id: string;
   user_object_id: string; group_object_id: string; operation: "grant" | "revoke"; justification: string;
@@ -264,10 +264,10 @@ function NewRequest({ session, close, completed }: { session: Session; close: ()
       <p>{t(draft.add ? "Add membership" : "Remove membership")} · {user?.display_name ?? preview.user_id} · {group?.display_name ?? preview.group_id}</p>
       <p>{draft.justification}</p>
       <p>{t("Membership in snapshot")} · {t(preview.expected ? "Present" : "Absent")}</p>
-      <p>{t(preview.direct_authorized ? "Authorized administrator changes enter the execution queue directly." : "This request requires approval.")}</p>
+      <p>{preview.can_submit ? t(preview.direct_authorized ? "Authorized administrator changes enter the execution queue directly." : "This request requires approval.") : provisioningWriteMessage(preview.write_blocker)}</p>
       <div className="iam-actions">
         <button className="secondary-button" disabled={busy} onClick={() => setStep(2)}>{t("Back")}</button>
-        <button className="primary-button" disabled={busy} onClick={() => void submit()}>{t("Submit request")}</button>
+        <button className="primary-button" disabled={busy || !preview.can_submit} onClick={() => void submit()}>{t("Submit request")}</button>
       </div>
     </>}
   </Drawer>;

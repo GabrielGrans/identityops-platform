@@ -1,5 +1,7 @@
 from datetime import timedelta
 
+import pytest
+from backend.app.models.entra import EntraGroup, EntraSyncRun, EntraUser
 import httpx
 from sqlalchemy import func, select
 
@@ -132,3 +134,98 @@ def test_writeback_failure_and_stale_approval(client, db_session, test_data, adm
     db_session.commit()
     assert client.post(f"{BASE}/requests/{row['id']}/decision", headers=reviewer,
                        json={"approve": True, "note": "Expired approval"}).status_code == 409
+
+
+def test_read_only_preview_does_not_authorize_execution(
+    client, db_session, test_data, admin_token, employee_token, migrated,
+):
+    graph = prepare(db_session, migrated, test_data)
+    migrated.ENTRA_WRITE_ENABLED = False
+    migrated.ENTRA_WRITE_GROUP_IDS = ""
+    admin = headers(admin_token)
+    data = {"user_id": USER, "group_id": GROUP, "add": True, "justification": "Read-only preview for the fixture"}
+    assert client.post(f"{BASE}/preview", headers=headers(employee_token), json=data).status_code == 403
+    response = client.post(f"{BASE}/preview", headers=admin, json=data)
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["can_submit"] is False and result["write_blocker"] == "write_disabled"
+    assert result["direct_authorized"] is False
+    groups = client.get(f"{DIRECTORY}/groups?classification=eligible&limit=1", headers=admin).json()
+    assert groups["items"][0]["object_id"] == GROUP
+    assert groups["items"][0]["write_blocker"] == "write_disabled"
+    assert not client.get(f"{DIRECTORY}/groups?classification=protected", headers=admin).json()["items"]
+
+    confirmation = data | {"expected_snapshot_id": result["snapshot_id"]}
+    disabled = client.post(f"{BASE}/requests", headers=admin, json=confirmation)
+    assert disabled.status_code == 409 and "disabled" in disabled.json()["detail"]
+    migrated.ENTRA_WRITE_ENABLED = True  # Only the in-memory configuration for this mocked test.
+    assert client.post(f"{BASE}/preview", headers=admin, json=data).json()["write_blocker"] == "group_not_allowlisted"
+    assert client.post(f"{BASE}/requests", headers=admin, json=confirmation).status_code == 409
+    assert db_session.scalar(select(func.count()).select_from(changes)) == 0
+    assert not graph.writes
+
+
+@pytest.mark.parametrize("field,value,classification", [
+    ("role_assignable", True, "protected"),
+    ("group_types", ["DynamicMembership"], "unsupported"),
+    ("on_premises_sync_enabled", True, "unsupported"),
+    ("management_metadata_complete", False, "unsupported"),
+])
+def test_preview_rejects_group_for_remote_and_employee_selectors(
+    client, db_session, test_data, admin_token, migrated, field, value, classification,
+):
+    graph = prepare(db_session, migrated, test_data)
+    group = db_session.scalar(select(EntraGroup).where(EntraGroup.object_id == GROUP))
+    user = db_session.scalar(select(EntraUser).where(EntraUser.object_id == USER))
+    setattr(group, field, value)
+    user.local_employee_id = test_data["admin"].id
+    db_session.commit()
+    admin = headers(admin_token)
+    for subject in ({"user_id": USER}, {"employee_id": user.local_employee_id}):
+        response = client.post(f"{BASE}/preview", headers=admin, json=subject | {
+            "group_id": GROUP, "add": True, "justification": "Unsafe group fixture",
+        })
+        assert response.status_code == 409
+    matching = client.get(f"{DIRECTORY}/groups?classification={classification}", headers=admin).json()
+    assert matching["items"][0]["object_id"] == GROUP
+    assert not graph.writes
+
+
+def test_preview_rejects_stale_snapshot(client, db_session, test_data, admin_token, migrated):
+    graph = prepare(db_session, migrated, test_data)
+    run = db_session.scalar(select(EntraSyncRun).where(EntraSyncRun.status == "completed"))
+    run.finished_at = utcnow() - timedelta(days=10)
+    db_session.commit()
+    response = client.post(f"{BASE}/preview", headers=headers(admin_token), json={
+        "user_id": USER, "group_id": GROUP, "add": False, "justification": "Stale snapshot fixture",
+    })
+    assert response.status_code == 409 and "Synchronize" in response.json()["detail"]
+    assert not graph.writes
+
+
+def test_approval_and_worker_recheck_write_policy_after_preview(
+    client, db_session, test_data, admin_token, employee_token, migrated,
+):
+    graph = prepare(db_session, migrated, test_data)
+    admin, reviewer = headers(admin_token), headers(employee_token)
+    confirmed = propose(client, admin)
+    created = client.post(f"{BASE}/requests", headers=admin, json=confirmed)
+    assert created.status_code == 201
+    decision = f"{BASE}/requests/{created.json()['id']}/decision"
+    body = {"approve": True, "note": "Reviewed externally"}
+    migrated.ENTRA_WRITE_ENABLED = False
+    assert client.post(decision, headers=reviewer, json=body).status_code == 409
+    migrated.ENTRA_WRITE_ENABLED = True
+    assert client.post(decision, headers=reviewer, json=body).status_code == 200
+    migrated.ENTRA_WRITE_GROUP_IDS = ""
+    execute_due(db_session, migrated, TENANT, graph.client)
+    status, reason = db_session.execute(select(changes.c.status, changes.c.error_code)).one()
+    assert (status, reason) == ("failed", "group_not_allowlisted")
+    assert not graph.writes
+
+
+def test_preview_prefixes_are_registered_in_fastapi(client):
+    paths = client.get("/openapi.json").json()["paths"]
+    for path in (f"{BASE}/preview", "/integrations/servicenow/access-requests/preview"):
+        assert "post" in paths[path]
+        assert f"/api{path}" not in paths  # The reverse proxy strips its external /api prefix.
