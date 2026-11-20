@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -26,6 +26,20 @@ class Settings(BaseSettings):
     AZURE_CLIENT_SECRET: SecretStr = Field(default=SecretStr(""), repr=False, exclude=True)
     ENTRA_GRAPH_BASE_URL: str = "https://graph.microsoft.com/v1.0"
     ENTRA_HTTP_TIMEOUT_SECONDS: float = Field(default=10, gt=0, le=30)
+
+    SERVICENOW_ENABLED: bool = False
+    SERVICENOW_SIMULATION: bool = True
+    SERVICENOW_INSTANCE: str = ""
+    SERVICENOW_API_NAMESPACE: str = Field(default="identityops", pattern=r"^[a-zA-Z0-9_]{1,80}$")
+    SERVICENOW_READ_USER: str = ""
+    SERVICENOW_READ_PASSWORD: SecretStr = Field(default=SecretStr(""), repr=False, exclude=True)
+    SERVICENOW_INTAKE_TOKEN: SecretStr = Field(default=SecretStr(""), repr=False, exclude=True)
+    SERVICENOW_REQUESTER_ID: int | None = Field(default=None, gt=0)
+
+    @field_validator("SERVICENOW_REQUESTER_ID", mode="before")
+    @classmethod
+    def empty_servicenow_requester(cls, value):
+        return None if value == "" else value
 
     @property
     def entra_tenant(self) -> str | None:

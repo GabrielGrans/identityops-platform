@@ -15,7 +15,7 @@ services:
       retries: 10
 
   api:
-    image: identityops-api:${IDENTITYOPS_VERSION:-1.4.1}
+    image: identityops-api:${IDENTITYOPS_VERSION:-1.5.0}
     build:
       context: ../..
       dockerfile: infrastructure/docker/backend.Dockerfile
@@ -37,6 +37,14 @@ services:
       ENTRA_WRITE_ENABLED: ${ENTRA_WRITE_ENABLED:-false}
       ENTRA_WRITE_GROUP_IDS: ${ENTRA_WRITE_GROUP_IDS:-}
       ENTRA_PROTECTED_GROUP_IDS: ${ENTRA_PROTECTED_GROUP_IDS:-}
+      SERVICENOW_ENABLED: ${SERVICENOW_ENABLED:-false}
+      SERVICENOW_SIMULATION: ${SERVICENOW_SIMULATION:-true}
+      SERVICENOW_INSTANCE: ${SERVICENOW_INSTANCE:-}
+      SERVICENOW_API_NAMESPACE: ${SERVICENOW_API_NAMESPACE:-identityops}
+      SERVICENOW_READ_USER: ${SERVICENOW_READ_USER:-}
+      SERVICENOW_READ_PASSWORD: ${SERVICENOW_READ_PASSWORD:-}
+      SERVICENOW_INTAKE_TOKEN: ${SERVICENOW_INTAKE_TOKEN:-}
+      SERVICENOW_REQUESTER_ID: ${SERVICENOW_REQUESTER_ID:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,7 +63,7 @@ services:
       test: ["NONE"]
 
   web:
-    image: identityops-web:${IDENTITYOPS_VERSION:-1.4.1}
+    image: identityops-web:${IDENTITYOPS_VERSION:-1.5.0}
     build:
       context: ../..
       dockerfile: infrastructure/docker/frontend.Dockerfile

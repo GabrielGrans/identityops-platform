@@ -134,3 +134,8 @@ A sincronização atualiza apenas o snapshot de leitura. A criação de colabora
 - Antes de atualizar, faça backup. Rode `python -m backend.app.scripts.migrate` e `python -m backend.app.scripts.seed_permissions`, depois sincronize novamente. Se houver e-mails locais duplicados ignorando maiúsculas e espaços nas pontas, a migração é interrompida. Resolva os registros manualmente antes de tentar novamente.
 
 For background synchronization, role policies, administrative requests and opt-in writeback, see [Entra automation](ENTRA_AUTOMATION.md).
+
+
+## Atualização e sincronização manual
+
+Na página Microsoft Entra ID, **Sincronizar agora** usa a permissão `entra:sync` e executa a leitura no Graph mesmo com uma conexão saudável. Confira contagens, status e mensagens no **Histórico de sincronização**. **Atualizar dados locais** consulta o PostgreSQL via API. **Atualizar indicadores** consulta os endpoints de agregação. Para entrada de solicitações a partir de uma PDI, consulte o [guia ServiceNow](SERVICENOW.md).

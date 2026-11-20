@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { t } from "../i18n";
 import { request } from "../services/api";
-import { DataTable, Drawer, Feedback, Panel, QueryState, StatusBadge } from "./common";
+import { CollapsiblePanel, DataTable, Drawer, Feedback, Panel, QueryState, StatusBadge } from "./common";
 import { displayTime, provisioningStatus, useMutation, useQuery, type Session } from "./data";
 
 const endpoint = "/entra/automation";
@@ -9,10 +9,14 @@ const statuses = ["pending", "direct_authorized", "approved", "executing", "succ
 type Subject = { user_id: string } | { employee_id: number };
 type Draft = Subject & { group_id: string; add: boolean; justification: string };
 interface Preview { user_id: string; group_id: string; expected: boolean; snapshot_id: number; direct_authorized: boolean }
+interface ServiceNowEvidence {
+  ritm: string; sys_id: string; requester_id: string; beneficiary_id: string; approver_id: string; approval_id: string;
+  user_object_id: string; group_object_id: string; operation: "grant" | "revoke"; justification: string;
+}
 interface Change {
   id: number; employee_id: number | null; user_object_id: string; error_code: string | null; requester_id: number;
   reviewer_id: number | null; status: string; expires_at: string; created_at: string | null; employee_name: string | null; group_name: string | null;
-  request: Preview & Draft & { direct_authorization?: { actor_id: number } };
+  request: Preview & Draft & { direct_authorization?: { actor_id: number }; servicenow?: ServiceNowEvidence };
 }
 interface Timeline { id: number; action: string; created_at: string; actor_id: number | null; verified_membership: boolean | null }
 
@@ -32,7 +36,7 @@ export function EntraChangeRequests({ session }: { session: Session }) {
   const rows = useQuery<Change[]>(session.token, canRequest || canApprove ? `${endpoint}/requests?${params}` : null, mutation.revision, true);
   if (!canRequest && !canApprove) return null;
   const current = rows.data?.find(row => row.id === selected);
-  return <Panel title={t("Administrative Entra requests")}>
+  return <><Panel title={t("Administrative Entra requests")}>
     <Feedback message={mutation.message} />
     <div className="iam-actions">
       {canRequest && <button className="primary-button" onClick={() => setCreate(true)}>{t("New request")}</button>}
@@ -57,6 +61,7 @@ export function EntraChangeRequests({ session }: { session: Session }) {
       <p>{t("On this page")} · {t("pending")} {items.filter(item => item.status === "pending").length} · {t("Completed")} {items.filter(item => item.status === "succeeded").length}</p>
       <DataTable label={t("Administrative Entra requests")} rows={items} rowKey={item => item.id} columns={[
         { label: t("Request ID"), render: item => <button className="secondary-button" onClick={() => setSelected(item.id)}>#{item.id}</button> },
+        { label: t("Source"), render: item => item.request.servicenow ? `ServiceNow · ${item.request.servicenow.ritm}` : "IdentityOps" },
         { label: t("Employee"), render: item => item.employee_name ?? (item.employee_id ? `#${item.employee_id}` : item.user_object_id) },
         { label: t("Group"), render: item => item.group_name ?? item.request.group_id },
         { label: t("Action"), render: item => t(item.request.add ? "Add membership" : "Remove membership") },
@@ -71,7 +76,53 @@ export function EntraChangeRequests({ session }: { session: Session }) {
     </>}</QueryState>
     {current && <RequestDetails item={current} close={() => setSelected(undefined)} session={session} canApprove={canApprove}
       mutation={mutation} />}
-  </Panel>;
+  </Panel>
+  {canApprove && <ServiceNowSimulations token={session.token} revision={mutation.revision} />}
+  </>;
+}
+
+interface Simulation {
+  sys_id: string; created_at: string; evidence: ServiceNowEvidence;
+}
+
+function ServiceNowSimulations({ token, revision }: { token: string; revision: number }) {
+  const [cursors, setCursors] = useState<string[]>([]);
+  const [current, setCurrent] = useState<Simulation>();
+  const before = cursors.at(-1);
+  const rows = useQuery<Simulation[]>(token, `/integrations/servicenow/access-requests/snapshot${before ? `?before=${before}` : ""}`, revision);
+  if (rows.data?.length === 0 && !before) return null;
+  return <CollapsiblePanel title={t("ServiceNow simulations")}>
+    <QueryState result={rows}>{items => <>
+      <DataTable label={t("ServiceNow simulations")} rows={items} rowKey={item => item.sys_id} columns={[
+        { label: "RITM", render: item => <button className="secondary-button" onClick={() => setCurrent(item)}>{item.evidence.ritm}</button> },
+        { label: t("Employee"), render: item => item.evidence.user_object_id },
+        { label: t("Group"), render: item => item.evidence.group_object_id },
+        { label: t("Status"), render: () => <StatusBadge>{t("Simulated")}</StatusBadge> },
+        { label: t("Date"), render: item => displayTime(item.created_at) },
+      ]} />
+      <button className="secondary-button" disabled={!before} onClick={() => setCursors(cursors.slice(0, -1))}>{t("Previous page")}</button>
+      <button className="secondary-button" disabled={items.length < 25} onClick={() => setCursors([...cursors, items[24].sys_id])}>{t("Next page")}</button>
+    </>}</QueryState>
+    {current && <Drawer title={current.evidence.ritm} close={() => setCurrent(undefined)}>
+      <p role="status">{t("Simulation completed without changing Microsoft Entra ID.")}</p>
+      <dl><ServiceNowDetails evidence={current.evidence} />
+        <dt>{t("Employee")}</dt><dd>{current.evidence.user_object_id}</dd>
+        <dt>{t("Group")}</dt><dd>{current.evidence.group_object_id}</dd>
+        <dt>{t("Action")}</dt><dd>{t(current.evidence.operation === "grant" ? "Add membership" : "Remove membership")}</dd>
+        <dt>{t("Business justification")}</dt><dd>{current.evidence.justification}</dd>
+        <dt>{t("Date")}</dt><dd>{displayTime(current.created_at)}</dd>
+      </dl>
+    </Drawer>}
+  </CollapsiblePanel>;
+}
+
+function ServiceNowDetails({ evidence }: { evidence: ServiceNowEvidence }) {
+  return <>
+    <dt>{t("Source")}</dt><dd>ServiceNow · {evidence.ritm} · {evidence.sys_id}</dd>
+    <dt>{t("Requested by in ServiceNow")}</dt><dd>{evidence.requester_id}</dd>
+    <dt>{t("ServiceNow beneficiary")}</dt><dd>{evidence.beneficiary_id}</dd>
+    <dt>{t("Approved by in ServiceNow")}</dt><dd>{evidence.approver_id} · {evidence.approval_id}</dd>
+  </>;
 }
 
 function RequestDetails({ item, session, close, canApprove, mutation }: {
@@ -81,11 +132,12 @@ function RequestDetails({ item, session, close, canApprove, mutation }: {
   const verified = timeline.data?.find(event => event.action === "succeeded")?.verified_membership;
   return <Drawer title={`${t("Request details")} #${item.id}`} close={close}>
     <dl>
+      {item.request.servicenow && <ServiceNowDetails evidence={item.request.servicenow} />}
       <dt>{t("Employee")}</dt><dd>{item.employee_name ?? (item.employee_id ? `#${item.employee_id}` : "—")}</dd>
       <dt>{t("Entra object ID")}</dt><dd>{item.user_object_id}</dd>
       <dt>{t("Group")}</dt><dd>{item.group_name ? `${item.group_name} · ${item.request.group_id}` : item.request.group_id}</dd>
       <dt>{t("Action")}</dt><dd>{t(item.request.add ? "Add membership" : "Remove membership")}</dd>
-      <dt>{t("Requested by")}</dt><dd>#{item.requester_id}</dd>
+      <dt>{t(item.request.servicenow ? "Integration identity" : "Requested by")}</dt><dd>#{item.requester_id}</dd>
       <dt>{t("Business justification")}</dt><dd>{item.request.justification}</dd>
       <dt>{t("Approval")}</dt><dd>{item.request.direct_authorization ? t("Authorized administrator changes enter the execution queue directly.")
         : item.reviewer_id ? `#${item.reviewer_id} · ${t(item.status === "rejected" ? "rejected" : "approved")}` : t("No decision recorded")}</dd>
