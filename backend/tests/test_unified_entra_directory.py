@@ -229,3 +229,58 @@ def test_preview_prefixes_are_registered_in_fastapi(client):
     for path in (f"{BASE}/preview", "/integrations/servicenow/access-requests/preview"):
         assert "post" in paths[path]
         assert f"/api{path}" not in paths  # The reverse proxy strips its external /api prefix.
+
+
+@pytest.mark.parametrize("mode", ["manual", "worker"])
+@pytest.mark.parametrize("detail_complete", [True, False])
+def test_sync_backfills_metadata_and_preview_fails_closed(
+    client, db_session, test_data, admin_token, migrated, monkeypatch, mode, detail_complete,
+):
+    from backend.app.api.routes.entra import snapshot_loader
+
+    class PartialGraph(GraphFixture):
+        detail_calls = 0
+
+        def dispatch(self, request):
+            path = request.url.path
+            if path == "/v1.0/users":
+                return httpx.Response(200, json={"value": [{"id": USER, "accountEnabled": True}]})
+            if path in ("/v1.0/groups", "/v1.0/groups/delta"):
+                assert {"securityEnabled", "mailEnabled", "groupTypes", "onPremisesSyncEnabled",
+                        "isAssignableToRole"} <= set(request.url.params["$select"].split(","))
+                value = {"value": [{"id": GROUP, "securityEnabled": True, "mailEnabled": False}]}
+                if path.endswith("/delta"):
+                    value["@odata.deltaLink"] = "https://graph.microsoft.com/v1.0/groups/delta?$deltatoken=fixture"
+                return httpx.Response(200, json=value)
+            if path == f"/v1.0/groups/{GROUP}":
+                self.detail_calls += 1
+                metadata = {"id": GROUP, "mailEnabled": False, "onPremisesSyncEnabled": None}
+                if detail_complete:
+                    metadata.update(securityEnabled=True, isAssignableToRole=False, groupTypes=[])
+                return httpx.Response(200, json=metadata)
+            return super().dispatch(request)
+
+    graph = PartialGraph(migrated)
+    grant(db_session, test_data["admin_group"], "entra:request_change")
+    assert not migrated.ENTRA_WRITE_ENABLED and not migrated.ENTRA_WRITE_GROUP_IDS
+    admin = headers(admin_token)
+    if mode == "manual":
+        monkeypatch.setitem(client.app.dependency_overrides, snapshot_loader, lambda: lambda _: graph.client().snapshot())
+        response = client.post("/entra/sync", headers=admin)
+        assert response.status_code == 201, response.text
+    else:
+        assert sync_due(db_session, TENANT, 10, graph.client) is True
+    assert graph.detail_calls == 1
+    group = db_session.scalar(select(EntraGroup).where(EntraGroup.object_id == GROUP))
+    assert group.security_enabled is True
+    assert group.management_metadata_complete is detail_complete
+    assert group.role_assignable is (False if detail_complete else None)
+    assert group.group_types == ([] if detail_complete else None)
+    assert group.on_premises_sync_enabled is None
+    result = client.post(f"{BASE}/preview", headers=admin, json={
+        "user_id": USER, "group_id": GROUP, "add": True, "justification": "Validate Graph metadata fixture",
+    })
+    assert result.status_code == (200 if detail_complete else 409), result.text
+    if detail_complete:
+        assert result.json()["can_submit"] is False
+    assert not graph.writes

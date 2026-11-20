@@ -160,7 +160,7 @@ def group_types(item):
     return value
 
 
-GROUP_METADATA = ("mailEnabled", "groupTypes", "onPremisesSyncEnabled", "isAssignableToRole")
+GROUP_METADATA = ("securityEnabled", "mailEnabled", "groupTypes", "onPremisesSyncEnabled", "isAssignableToRole")
 
 
 def optional_bool(item: dict, name: str) -> bool | None:
@@ -168,6 +168,21 @@ def optional_bool(item: dict, name: str) -> bool | None:
     if value is not None and not isinstance(value, bool):
         raise GraphError("invalid_response")
     return value
+
+
+def group_metadata(item):
+    values = {
+        "security_enabled": optional_bool(item, "securityEnabled"),
+        "mail_enabled": optional_bool(item, "mailEnabled"),
+        "role_assignable": optional_bool(item, "isAssignableToRole"),
+        "group_types": group_types(item),
+        "on_premises_sync_enabled": optional_bool(item, "onPremisesSyncEnabled"),
+    }
+    # Graph explicitly uses null for groups that have never synced from on-premises.
+    # An omitted property is not evidence of that state.
+    complete = ("onPremisesSyncEnabled" in item and
+                all(value is not None for name, value in values.items() if name != "on_premises_sync_enabled"))
+    return {**values, "management_metadata_complete": complete}
 
 
 class GraphClient:
@@ -360,15 +375,34 @@ class GraphClient:
                     skipped += 1
         return memberships, skipped
 
-    def check_group(self, group_id: str):
+    def read_group_metadata(self, group_id: str):
         group_id = str(UUID(group_id))
         response = self.request("GET", f"{self.config.base_url}/groups/{group_id}",
-            params={"$select": "id,securityEnabled,mailEnabled,groupTypes,onPremisesSyncEnabled,isAssignableToRole"},
-            headers={"Authorization": f"Bearer {self.token()}"})
-        if (object_id(response) != group_id or response.get("securityEnabled") is not True
-            or response.get("mailEnabled") is not False or response.get("groupTypes") != []
-            or "onPremisesSyncEnabled" not in response or response["onPremisesSyncEnabled"] not in (False, None)
-            or response.get("isAssignableToRole") is not False):
+            params={"$select": "id," + ",".join(GROUP_METADATA)},
+            headers={"Authorization": f"Bearer {self.token()}"}, accepted=(404,))
+        if response == 404:
+            return None
+        if object_id(response) != group_id:
+            raise GraphError("invalid_response")
+        return group_metadata(response)
+
+    def complete_group_metadata(self, groups):
+        for group in groups.values():
+            if group["security_enabled"] is False or group["management_metadata_complete"]:
+                continue
+            metadata = self.read_group_metadata(group["object_id"])
+            if metadata is not None:
+                if metadata["security_enabled"] is None:
+                    # Retain the observed directory classification, while the
+                    # detail response still leaves provisioning blocked.
+                    del metadata["security_enabled"]
+                group.update(metadata)
+
+    def check_group(self, group_id: str):
+        group = self.read_group_metadata(group_id)
+        if (not group or not group["management_metadata_complete"] or not group["security_enabled"]
+                or group["mail_enabled"] or group["group_types"] != []
+                or group["on_premises_sync_enabled"] is True or group["role_assignable"]):
             raise GraphError("write_unsupported")
 
     def has_member(self, group_id: str, user_id: str):
@@ -415,19 +449,15 @@ class GraphClient:
                 "job_title": optional_text(item, "jobTitle", 120),
                 "mail": optional_text(item, "mail", 320), "account_enabled": optional_bool(item, "accountEnabled"),
             }
-        for count, item in enumerate(self.pages("/groups", "id,displayName,securityEnabled,description," + ",".join(GROUP_METADATA)), 1):
+        for count, item in enumerate(self.pages("/groups", "id,displayName,description," + ",".join(GROUP_METADATA)), 1):
             if count > MAX_OBJECTS:
                 raise GraphError("sync_limit")
             key = object_id(item)
             groups[key] = {
                 "object_id": key, "display_name": optional_text(item, "displayName", 256),
-                "security_enabled": optional_bool(item, "securityEnabled"),
                 "description": optional_text(item, "description", 4096),
-                "mail_enabled": optional_bool(item, "mailEnabled"),
-                "role_assignable": optional_bool(item, "isAssignableToRole"),
-                "group_types": group_types(item),
-                "on_premises_sync_enabled": optional_bool(item, "onPremisesSyncEnabled"),
-                "management_metadata_complete": all(field in item for field in GROUP_METADATA),
+                **group_metadata(item),
             }
+        self.complete_group_metadata(groups)
         memberships, skipped = self.direct_memberships(groups, users)
         return DirectorySnapshot(users, groups, memberships, skipped)

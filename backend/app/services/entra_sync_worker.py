@@ -8,7 +8,7 @@ from backend.app.services.entra_automation_tables import state
 from backend.app.services.entra_service import synchronize, utcnow
 from backend.app.services.enterprise_governance import latest_snapshot
 from backend.app.services.graph_client import (
-    DirectorySnapshot, GraphError, GROUP_METADATA, MAX_OBJECTS, group_types, object_id, optional_bool, optional_text,
+    DirectorySnapshot, GraphError, GROUP_METADATA, MAX_OBJECTS, group_metadata, group_types, object_id, optional_bool, optional_text,
 )
 
 USER_FIELDS = {
@@ -30,10 +30,10 @@ def materialize(db, model, tenant, fields, patches, incremental):
     rows = {}
     if incremental:
         for row in db.scalars(select(model).where(model.tenant_id == tenant, model.present.is_(True))):
-            rows[row.object_id] = {"object_id": row.object_id, **{name: getattr(row, name) for name, _ in fields.values()}}
-    if model is EntraGroup and incremental:
-        for group in db.scalars(select(model).where(model.tenant_id == tenant, model.present.is_(True))):
-            rows[group.object_id]["management_metadata_complete"] = group.management_metadata_complete
+            values = {name: getattr(row, name) for name, _ in fields.values()}
+            if model is EntraGroup:
+                values["management_metadata_complete"] = row.management_metadata_complete
+            rows[row.object_id] = {"object_id": row.object_id, **values}
     for patch in patches:
         key = object_id(patch)
         if "@removed" in patch:
@@ -46,11 +46,11 @@ def materialize(db, model, tenant, fields, patches, incremental):
                     limit(patch) if callable(limit) else
                     optional_bool(patch, source) if limit is None else optional_text(patch, source, limit)
                 )
-        if model is EntraGroup and all(field in patch for field in GROUP_METADATA):
-            row["management_metadata_complete"] = True
+        if model is EntraGroup and any(field in patch for field in GROUP_METADATA):
+            row["management_metadata_complete"] = group_metadata(patch)["management_metadata_complete"]
     if model is EntraGroup:
         for row in rows.values():
-            row.setdefault("management_metadata_complete", None)
+            row.setdefault("management_metadata_complete", False)
     if len(rows) > MAX_OBJECTS:
         raise GraphError("sync_limit")
     return rows
@@ -64,7 +64,7 @@ def sync_due(db, tenant, interval, make_client):
     checkpoint = current.checkpoint if current else {}
     latest = latest_snapshot(db, tenant)
     use_delta = bool(latest and checkpoint.get("run_id") == latest.id and
-                     checkpoint.get("projection") == 2 and checkpoint.get("full_after", "") > now.isoformat())
+                     checkpoint.get("projection") == 3 and checkpoint.get("full_after", "") > now.isoformat())
     next_checkpoint = {}
 
     def fetch():
@@ -82,9 +82,10 @@ def sync_due(db, tenant, interval, make_client):
             groups, group_link = graph.delta("groups", "id," + ",".join(GROUP_FIELDS))
         users = materialize(db, EntraUser, tenant, USER_FIELDS, users, incremental)
         groups = materialize(db, EntraGroup, tenant, GROUP_FIELDS, groups, incremental)
+        graph.complete_group_metadata(groups)
         security_groups = {key for key, row in groups.items() if row["security_enabled"] is True}
         edges, skipped = graph.direct_memberships(security_groups, users)
-        next_checkpoint.update(users=user_link, groups=group_link, projection=2,
+        next_checkpoint.update(users=user_link, groups=group_link, projection=3,
                                full_after=checkpoint["full_after"] if incremental else (now + timedelta(days=1)).isoformat())
         return DirectorySnapshot(users, groups, edges, skipped)
 

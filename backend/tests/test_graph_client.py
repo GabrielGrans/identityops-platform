@@ -46,6 +46,12 @@ def test_client_credentials_cached_pagination_and_memberships():
                 return httpx.Response(200, json={"value": [], "@odata.nextLink": f"{GRAPH_URL}/users?$skiptoken=page2"})
             case "/v1.0/groups":
                 return httpx.Response(200, json={"value": [{"id": GROUP, "securityEnabled": True}]})
+            case path if path == f"/v1.0/groups/{GROUP}":
+                assert set(request.url.params["$select"].split(",")) == {"id", *graph_client.GROUP_METADATA}
+                return httpx.Response(200, json={
+                    "id": GROUP, "securityEnabled": True, "mailEnabled": False,
+                    "groupTypes": [], "onPremisesSyncEnabled": None, "isAssignableToRole": False,
+                })
             case _:
                 assert request.url.path == f"/v1.0/groups/{GROUP}/members"
                 return httpx.Response(200, json={"value": [
@@ -60,6 +66,7 @@ def test_client_credentials_cached_pagination_and_memberships():
         snapshot = first.snapshot()
         assert snapshot.users[USER]["account_enabled"] is False
         assert snapshot.groups[GROUP]["security_enabled"] is True
+        assert snapshot.groups[GROUP]["management_metadata_complete"] is True
         assert snapshot.memberships == {(GROUP, USER)}
         assert snapshot.skipped_users == 1
         assert GraphClient(CONFIG, client, cache).token() == TOKEN
@@ -162,3 +169,24 @@ def test_transport_failures_retry_only_twice(monkeypatch):
         GraphClient(CONFIG, http, TokenCache()).token()
     assert raised.value.code == "graph_unavailable"
     assert delays == [0.5, 1]
+
+
+@pytest.mark.parametrize("field", graph_client.GROUP_METADATA)
+def test_group_metadata_rejects_omitted_fields(field):
+    item = {
+        "securityEnabled": True, "mailEnabled": False, "groupTypes": [],
+        "onPremisesSyncEnabled": None, "isAssignableToRole": False,
+    }
+    assert graph_client.group_metadata(item)["management_metadata_complete"] is True
+    item.pop(field)
+    assert graph_client.group_metadata(item)["management_metadata_complete"] is False
+
+
+@pytest.mark.parametrize("field", ["securityEnabled", "mailEnabled", "isAssignableToRole", "groupTypes"])
+def test_group_metadata_never_infers_nonnullable_values(field):
+    item = {
+        "securityEnabled": True, "mailEnabled": False, "groupTypes": [],
+        "onPremisesSyncEnabled": None, "isAssignableToRole": False,
+    }
+    item[field] = None
+    assert graph_client.group_metadata(item)["management_metadata_complete"] is False

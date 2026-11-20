@@ -68,3 +68,67 @@ A prévia funciona com `ENTRA_WRITE_ENABLED=false` e `ENTRA_WRITE_GROUP_IDS` vaz
 A prévia e o `snapshot_id` não concedem autorização. A criação, a aprovação positiva e a execução voltam a verificar as condições de escrita e a allowlist. O worker verifica a classificação do grupo e a associação diretamente no Graph antes de escrever e confirma o resultado depois. PostgreSQL serializa solicitações abertas para o mesmo par usuário–grupo e o worker usa um bloqueio por tenant. Uma mudança externa entre a leitura e a escrita continua possível, pois o Graph e o PostgreSQL não compartilham uma transação.
 
 Para Flextrix e MID Server, use a [prévia dedicada do ServiceNow](SERVICENOW.md#prévia-flextrix-pelo-mid-server).
+
+## Revalidar metadados no Windows
+
+O `$select` da sincronização manual e o da rotina delta pedem
+`securityEnabled`, `mailEnabled`, `groupTypes`, `onPremisesSyncEnabled` e
+`isAssignableToRole`. Uma resposta de coleção ou delta pode chegar sem parte
+desses campos. O coletor consulta `GET /v1.0/groups/{id}` com os mesmos campos
+para candidatos incompletos, respeitando o limite geral de requisições.
+A rotina delta recria o checkpoint uma vez após esta atualização.
+
+`management_metadata_complete` exige quatro valores tipados e a presença
+explícita de `onPremisesSyncEnabled`. O Graph usa `null` explícito para grupos
+que nunca foram sincronizados do AD local. A omissão dessa propriedade não
+equivale a esse estado. Um grupo com metadados completos ainda pode estar
+protegido ou ser de um tipo não permitido.
+
+1. No PowerShell, atualize a cópia de trabalho e inicie o PostgreSQL de teste.
+   No `.env` já configurado, mantenha `ENTRA_WRITE_ENABLED=false` e
+   `ENTRA_WRITE_GROUP_IDS=`. Confirme que a aplicação usada pela API tem
+   consentimento administrativo para `Group.Read.All` e `User.Read.All`.
+   Para esta validação de leitura, dispense permissões de escrita.
+2. Reinicie a API com o código atualizado. No cliente, abra **Microsoft Entra
+   ID → Sincronizar agora** e aguarde um registro concluído no histórico.
+   Essa opção funciona com o worker parado. Reinicie o worker com a mesma
+   versão se for validar a sincronização automática.
+
+```powershell
+git fetch origin
+git switch fix/identityops-entra-group-metadata
+docker compose up -d --wait postgres
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+3. No PostgreSQL, consulte o snapshot concluído para o tenant configurado.
+   Substitua o placeholder pelo ID do seu tenant apenas na sessão local.
+
+```sql
+BEGIN READ ONLY;
+WITH snapshot AS (
+    SELECT id, tenant_id, finished_at
+    FROM entra_sync_runs
+    WHERE tenant_id = '<tenant-id>' AND status = 'completed'
+    ORDER BY finished_at DESC, id DESC
+    LIMIT 1
+)
+SELECT g.display_name, s.id AS snapshot_id, s.finished_at,
+       g.management_metadata_complete, g.role_assignable, g.group_types,
+       g.security_enabled, g.mail_enabled, g.on_premises_sync_enabled
+FROM entra_groups g
+JOIN snapshot s ON s.tenant_id = g.tenant_id AND s.id = g.last_seen_run_id
+WHERE g.present
+ORDER BY g.display_name;
+ROLLBACK;
+```
+
+4. Na UI, confira a classificação do grupo. A prévia de um grupo elegível em
+   um snapshot recente deve retornar HTTP 200 e `can_submit=false` com a
+   escrita desabilitada. Se os metadados continuarem incompletos, compare
+   a resposta de coleção com a resposta de `GET /v1.0/groups/{id}` usando
+   a mesma aplicação e o mesmo tenant em uma sessão de diagnóstico autorizada.
+   Verifique a presença e o tipo das propriedades, mantendo tokens e
+   identificadores fora de logs e relatórios. Se a sincronização falhar com
+   403, confira o consentimento de leitura. Se o detalhe ainda omitir campos,
+   o grupo permanece bloqueado. Não ajuste registros manualmente no banco.
