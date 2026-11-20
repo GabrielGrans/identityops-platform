@@ -24,6 +24,8 @@ PDI must have an authorized HTTPS route to the backend or a correctly configured
 
 ## PDI setup
 
+For simulation acceptance and approval evidence protections, follow the [PDI checklist in Portuguese](SERVICENOW_PDI.md).
+
 1. Add a managed string field `u_identityops_entra_object_id` to `sys_user`, writable only by trusted identity administrators. Populate it for test users with their immutable Entra object IDs.
 2. Create the native catalog item **Solicitação de Acesso Corporativo**. Define `beneficiary` (reference to `sys_user`), `group_object_id` (controlled choices with Entra object IDs), `operation` (choice values `grant` and `revoke`) and `justification` (text). Let native request records record the RITM number, request submitter and approval. Treat corporate email as a display attribute. Restrict editing request inputs after approval using server-side ACLs/process enforcement, including changes to catalog variables submitted through different channels.
 3. Configure a Flow Designer catalog trigger and **Ask for Approval** against the RITM. Use a managed approver or group with separation from the requester and beneficiary. Set overall RITM approval state through the native approval flow. Configure `x_identityops.catalog_item_sys_id` and `x_identityops.entra_tenant_id` as system properties maintained by administrators.
