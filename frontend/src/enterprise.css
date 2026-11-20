@@ -2,6 +2,40 @@
 .enterprise-shell :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .enterprise-shell .main-area { min-width: 0; }
 .enterprise-shell .sidebar { background: #141519; border-color: var(--border); }
+@media (forced-colors: none) {
+  .enterprise-shell .sidebar-nav {
+    --sidebar-scroll-thumb: rgb(145 149 157 / .48);
+    --sidebar-scroll-thumb-hover: rgb(145 149 157 / .68);
+    scrollbar-width: thin;
+    scrollbar-color: var(--sidebar-scroll-thumb) transparent;
+  }
+
+  .enterprise-shell .sidebar-nav:hover {
+    scrollbar-color: var(--sidebar-scroll-thumb-hover) transparent;
+  }
+
+  @supports selector(::-webkit-scrollbar) {
+    /* Standard non-auto values override the 4px scrollbar in Chromium. */
+    .enterprise-shell .sidebar-nav,
+    .enterprise-shell .sidebar-nav:hover {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+
+    .enterprise-shell .sidebar-nav::-webkit-scrollbar { width: 4px; }
+    .enterprise-shell .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+    .enterprise-shell .sidebar-nav::-webkit-scrollbar-thumb {
+      background: var(--sidebar-scroll-thumb);
+      border-radius: 999px;
+    }
+
+    .enterprise-shell .sidebar-nav::-webkit-scrollbar-thumb:hover {
+      background: var(--sidebar-scroll-thumb-hover);
+    }
+
+    .enterprise-shell .sidebar-nav::-webkit-scrollbar-button { display: none; }
+  }
+}
 .enterprise-shell .sidebar-toggle { align-self: flex-end; flex-shrink: 0; margin-bottom: .5rem; }
 .enterprise-shell .nav-category { display: flex; align-items: center; justify-content: space-between; width: 100%; background: transparent; border: 0; cursor: pointer; text-align: start; }
 .nav-category[aria-expanded=false] svg { transform: rotate(-90deg); }
