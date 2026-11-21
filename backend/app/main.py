@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="IdentityOps API",
     description="Read-only IAM and SecOps monitoring for Microsoft Entra ID.",
-    version="1.4.1",
+    version="2.0.0-beta.1",
     lifespan=lifespan,
 )
 
@@ -93,7 +93,7 @@ def root():
     return {
         "application": "IdentityOps",
         "message": "IdentityOps API is running",
-        "version": "1.4.1",
+        "version": "2.0.0-beta.1",
     }
 
 

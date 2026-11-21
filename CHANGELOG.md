@@ -1,8 +1,26 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
+
+## [2.0.0-beta.1] — IAM and SecOps Monitoring Preview
+
+### Português
+
+- Dashboard de IAM e SecOps, com mudanças observadas no Microsoft Entra ID, tendências e grupos mais afetados.
+- Diretório em modo de consulta e auditoria com eventos de sincronização e associações observadas.
+- Remoção dos fluxos de concessão, revogação, aprovação e provisionamento da interface e da API. O worker deixa de processar a fila antiga.
+- Os dados históricos são preservados. O horário de uma mudança observada corresponde à coleta. O autor permanece desconhecido para eventos inferidos de snapshots.
+
+### English
+
+- IAM and SecOps dashboard with observed Microsoft Entra ID changes, trends, and the most affected groups.
+- Read-only directory and audit history for collection runs and observed memberships.
+- Removed access grants, revocations, approvals, and provisioning from the UI and API. The worker stops processing the legacy queue.
+- Historical records remain available. Snapshot differences record observation time and carry no actor attribution.
+
+[Upgrade and validation guide](docs/RELEASE.md)
 
 ## [1.4.1] — Unreleased
 

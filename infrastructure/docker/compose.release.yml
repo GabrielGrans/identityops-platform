@@ -15,7 +15,7 @@ services:
       retries: 10
 
   api:
-    image: identityops-api:${IDENTITYOPS_VERSION:-1.4.1}
+    image: identityops-api:${IDENTITYOPS_VERSION:-2.0.0-beta.1}
     build:
       context: ../..
       dockerfile: infrastructure/docker/backend.Dockerfile
@@ -52,7 +52,7 @@ services:
       test: ["NONE"]
 
   web:
-    image: identityops-web:${IDENTITYOPS_VERSION:-1.4.1}
+    image: identityops-web:${IDENTITYOPS_VERSION:-2.0.0-beta.1}
     build:
       context: ../..
       dockerfile: infrastructure/docker/frontend.Dockerfile
