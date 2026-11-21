@@ -1,6 +1,20 @@
-# IdentityOps · IAM & SecOps Monitoring
+# Grans Enterprise | IdentityOps
 
-**PT-BR** · [English](#english) · [Notas de versão](CHANGELOG.md) · [Guia da beta](docs/RELEASE.md) · [Instalação Windows](docs/WINDOWS.md)
+![Grans Enterprise | IdentityOps — IAM & SecOps Monitoring. Engineered by Gabriel Grans.](docs/assets/grans-identityops-banner.svg)
+
+**Monitoramento de IAM e SecOps · IAM & SecOps Monitoring**
+
+Engineered by Gabriel Grans
+
+[![Windows beta](https://img.shields.io/badge/Windows-v2.0.0--beta.2-b42318)](https://github.com/GabrielGrans/identityops-platform/releases/tag/v2.0.0-beta.2)
+[![CI](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/GabrielGrans/identityops-platform/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-FastAPI-blue)
+![React](https://img.shields.io/badge/React-TypeScript-3178C6)
+![IAM](https://img.shields.io/badge/IAM-Microsoft%20Entra%20ID-0078D4)
+
+[Baixar instalador Windows](https://github.com/GabrielGrans/identityops-platform/releases/tag/v2.0.0-beta.2) · [Instalação Windows](docs/WINDOWS.md) · [English](#english) · [Changelog](CHANGELOG.md)
+
+## Português
 
 IdentityOps é uma ferramenta de monitoramento para equipes de IAM e SecOps. Ela consulta identidades, grupos e associações do Microsoft Entra ID, exibe mudanças de acesso observadas e reúne achados de segurança, saúde da sincronização e logs de auditoria.
 
@@ -10,8 +24,6 @@ IdentityOps é uma ferramenta de monitoramento para equipes de IAM e SecOps. Ela
 - **Coleta do Entra ID** usa permissões de leitura. A aplicação não disponibiliza comandos de concessão, remoção, aprovação ou provisionamento de acesso.
 
 A primeira coleta bem-sucedida estabelece a referência para um tenant novo. Coletas posteriores comparam associações diretas de usuários em grupos de segurança. O horário registrado é o da coleta que observou a mudança. A comparação de snapshots não identifica o autor da mudança nem captura alterações feitas e revertidas entre duas coletas.
-
-![Grans Enterprise — IdentityOps](docs/assets/identityops-capa.png)
 
 ### Executar localmente
 

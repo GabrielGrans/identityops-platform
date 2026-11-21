@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 292" role="img" aria-labelledby="title description">
   <title id="title">Grans Enterprise | IdentityOps</title>
-  <desc id="description">Identity &amp; Access Management Platform, engineered by Gabriel Grans</desc>
+  <desc id="description">IAM &amp; SecOps Monitoring, engineered by Gabriel Grans</desc>
   <defs>
     <clipPath id="frame"><rect width="1000" height="292" rx="20"/></clipPath>
     <linearGradient id="ribbon" x1="0" x2="1" y1="0" y2="0">
@@ -28,7 +28,7 @@
     <g font-family="Arial, Helvetica, sans-serif">
       <text x="274" y="96" fill="#f25044" font-size="22" font-weight="700" letter-spacing="3">GRANS ENTERPRISE</text>
       <text x="270" y="157" fill="#fff" font-size="65" font-weight="700" letter-spacing="-2">Identity<tspan fill="#f25044">Ops</tspan></text>
-      <text x="274" y="194" fill="#e0e1e4" font-size="24">Identity &amp; Access Management Platform</text>
+      <text x="274" y="194" fill="#e0e1e4" font-size="24">IAM &amp; SecOps Monitoring</text>
       <text x="274" y="226" fill="#b9bbc0" font-size="17">Engineered by Gabriel Grans</text>
     </g>
   </g>
