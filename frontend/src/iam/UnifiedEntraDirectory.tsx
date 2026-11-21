@@ -65,7 +65,7 @@ export function DirectoryWorkspace({ kind, session }: { kind: Kind; session: Ses
       <button className="secondary-button" aria-pressed={active === "local"} onClick={() => setView("local")}>{t("Local IdentityOps")}</button>
     </div>}
     {active === "entra" && canReadEntra ? <RemoteDirectory kind={kind} session={session} objectId={objectId} close={() => { history.replaceState(null, "", `#entra/${kind}`); setObjectId(undefined); }} />
-      : kind === "users" ? <EmployeesPage token={session.token} employeeId={session.employeeId} />
+      : kind === "users" ? <EmployeesPage token={session.token} employeeId={session.employeeId} readOnly />
       : <CatalogPage catalog="groups" session={session} />}
   </>;
 }

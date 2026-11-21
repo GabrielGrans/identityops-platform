@@ -22,10 +22,11 @@ import {
 interface EmployeesPageProps {
   token: string;
   employeeId: number;
+  readOnly?: boolean;
 }
 
-function EmployeesPage({ token, employeeId }: EmployeesPageProps) {
-  const permissions = useQuery<string[]>(token, "/auth/me/permissions");
+function EmployeesPage({ token, employeeId, readOnly }: EmployeesPageProps) {
+  const permissions = useQuery<string[]>(token, readOnly ? null : "/auth/me/permissions");
   const mutation = useMutation(token);
   const [action, setAction] = useState<"new" | "view" | "edit" | "access" | "password">();
   const [selectedId, setSelectedId] = useState<number>();

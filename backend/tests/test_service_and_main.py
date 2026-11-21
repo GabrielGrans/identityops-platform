@@ -233,8 +233,8 @@ def test_create_employee_with_duplicate_employee_number(
 # MAIN API - GENERAL ENDPOINTS
 # ============================================================
 
-def test_root_endpoint(client):
-    response = client.get("/")
+def test_root_endpoint(monitoring_client):
+    response = monitoring_client.get("/")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -244,8 +244,8 @@ def test_root_endpoint(client):
     }
 
 
-def test_health_endpoint(client):
-    response = client.get("/health")
+def test_health_endpoint(monitoring_client):
+    response = monitoring_client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -258,7 +258,7 @@ def test_health_endpoint(client):
 # MAIN API - DATABASE HEALTH
 # ============================================================
 
-def test_database_health_connected(client, monkeypatch):
+def test_database_health_connected(monitoring_client, monkeypatch):
     class FakeConnection:
         def __enter__(self):
             return self
@@ -279,7 +279,7 @@ def test_database_health_connected(client, monkeypatch):
         FakeEngine(),
     )
 
-    response = client.get("/health/database")
+    response = monitoring_client.get("/health/database")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -288,7 +288,7 @@ def test_database_health_connected(client, monkeypatch):
     }
 
 
-def test_database_health_disconnected(client, monkeypatch):
+def test_database_health_disconnected(monitoring_client, monkeypatch):
     class FakeConnection:
         def __enter__(self):
             return self
@@ -309,7 +309,7 @@ def test_database_health_disconnected(client, monkeypatch):
         FakeEngine(),
     )
 
-    response = client.get("/health/database")
+    response = monitoring_client.get("/health/database")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -322,8 +322,8 @@ def test_database_health_disconnected(client, monkeypatch):
 # MAIN API - CORS
 # ============================================================
 
-def test_cors_allows_frontend_origin(client):
-    response = client.options(
+def test_cors_allows_frontend_origin(monitoring_client):
+    response = monitoring_client.options(
         "/employees",
         headers={
             "Origin": "http://localhost:5173",

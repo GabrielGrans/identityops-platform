@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { t } from "../i18n";
-import { Page, Panel, QueryState, SectionTabs } from "../iam/common";
-import { useQuery, type QueryResult } from "../iam/data";
+import { DataTable, Page, Panel, QueryState, SectionTabs } from "../iam/common";
+import { displayTime, useQuery, type QueryResult } from "../iam/data";
 import { AccessLine, ActivityRange, Bars, Distribution, type AccessActivity } from "./ActivityCharts";
 import { type Metrics } from "./OperationsDashboard";
 
@@ -15,7 +15,7 @@ interface Departments {
 export function AnalyticsPage({ token, metrics }: { token: string; metrics: QueryResult<Metrics> }) {
   const [area, setArea] = useState<Area>("Access activity");
   const [days, setDays] = useState("30");
-  const activity = useQuery<AccessActivity>(token, area === "Access activity" ? `/v1/dashboard/access-activity?days=${days}` : null);
+  const activity = useQuery<AccessActivity>(token, area === "Access activity" ? `/v1/dashboard/membership-observations?days=${days}` : null);
   const risk = useQuery<{ available: boolean; departments?: { name: string | null; count: number }[] | null; policy_findings?: number; violating_memberships?: number }>(token,
     area === "Risks & compliance" && metrics.data?.findings ? "/v1/dashboard/risk-distribution" : null);
   const departments = useQuery<Departments>(token, area === "Identities & departments" && metrics.data?.official_departments !== undefined
@@ -24,17 +24,20 @@ export function AnalyticsPage({ token, metrics }: { token: string; metrics: Quer
     <SectionTabs items={tabs} active={area} change={setArea} label="Analytics sections" />
     {area === "Access activity" ? <>
       <ActivityRange days={days} change={setDays} />
-      <p>{t("IdentityOps provisioning only. External directory changes are excluded.")}</p>
-      {activity.errorStatus === 403 ? <p>{t("Provisioning approval permission required.")}</p> : <QueryState result={activity}>{result => {
-        if (!result.series) return <p>{t("Provisioning history is unavailable.")}</p>;
-        const [succeeded, failed] = result.series.reduce(([ok, error], row) => [ok + row.succeeded, error + row.failed], [0, 0]);
+      <p>{t("Changes are detected between collections. The time shown is the observation time.")}</p>
+      {activity.errorStatus === 403 ? <p>{t("Entra and audit read permissions required.")}</p> : <QueryState result={activity}>{result => {
+        if (!result.series) return <p>{t("Collect an Entra directory snapshot to start monitoring.")}</p>;
         return <>
-          <Panel title={t("Verified access activity")}><AccessLine key={days} series={result.series} /></Panel>
+          <Panel title={t("Observed Entra access changes")}><AccessLine key={days} series={result.series} /></Panel>
           <div className="panel-grid">
             <Panel title={t("Most modified security groups")}><Bars rows={result.groups?.map(group => [group.name ?? group.id, group.count]) ?? []} /></Panel>
-            <Panel title={t("Provisioning outcomes")}>
-              <Distribution rows={[[t("Completed"), succeeded], [t("Failed"), failed]]} colors={["#a6c3bd", "#ed6256"]} />
-              <p>{t("Provisioning success rate")} · {succeeded + failed ? `${Math.round(succeeded / (succeeded + failed) * 100)}%` : "—"}</p>
+            <Panel title={t("Recent observed changes")}>
+              <DataTable label={t("Recent observed changes")} rows={result.recent ?? []} rowKey={row => row.id} columns={[
+                { label: t("Observed at"), render: row => displayTime(row.observed_at) },
+                { label: t("User"), render: row => row.user_name ?? row.user_object_id },
+                { label: t("Group"), render: row => row.group_name ?? row.group_object_id },
+                { label: t("Change"), render: row => t(row.operation === "added" ? "Membership added" : "Membership removed") },
+              ]} />
             </Panel>
           </div>
         </>;

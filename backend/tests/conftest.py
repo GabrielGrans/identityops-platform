@@ -12,6 +12,7 @@ os.environ.setdefault(
 
 import pytest
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from sqlalchemy import create_engine, text
@@ -23,7 +24,12 @@ from backend.app.core.security import (
     create_access_token,
     hash_password,
 )
-from backend.app.main import app
+from backend.app.main import (
+    app, auth_router, certification_router, dashboard_router, departments_router,
+    employees_router, enterprise_governance_router, entra_automation_router, entra_router,
+    governance_router, groups_router, iam_operations_router, memberships_router,
+    permissions_router, unified_entra_directory_router,
+)
 from backend.app.models import (
     Base,
     Department,
@@ -86,7 +92,7 @@ def db_session(database):
 
 
 @pytest.fixture
-def client(database):
+def monitoring_client(database):
     def override_get_db():
         db = TestingSessionLocal()
 
@@ -102,6 +108,21 @@ def client(database):
     yield test_client
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(monitoring_client):
+    """Exercise retained v1 services in a test-only app with the previous API routes."""
+    legacy = FastAPI()
+    for router in (
+        auth_router, departments_router, employees_router, groups_router, permissions_router,
+        memberships_router, governance_router, entra_router, entra_automation_router,
+        unified_entra_directory_router, enterprise_governance_router, iam_operations_router,
+        certification_router, dashboard_router,
+    ):
+        legacy.include_router(router)
+    legacy.dependency_overrides = app.dependency_overrides
+    return TestClient(legacy)
 
 
 @pytest.fixture

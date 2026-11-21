@@ -4,7 +4,8 @@ import { locale, t } from "../i18n";
 export interface AccessActivity {
   available: boolean;
   month?: { grants: number; revocations: number };
-  series?: { date: string; grants: number; revocations: number; succeeded: number; failed: number }[];
+  series?: { date: string; grants: number; revocations: number; succeeded?: number; failed?: number }[];
+  recent?: { id: number; observed_at: string; operation: "added" | "removed"; user_name: string | null; user_object_id: string; group_name: string | null; group_object_id: string }[];
   groups?: { id: string; name: string | null; count: number }[];
 }
 const severityColors = ["#ed6256", "#e29860", "#dabd6c", "#a4adb8"];
@@ -25,7 +26,7 @@ export function AccessLine({ series }: { series: NonNullable<AccessActivity["ser
   const y = (count: number) => 157 - 138 * count / maximum;
   const selected = point === undefined ? undefined : series[point];
   const date = (value: string) => new Date(value + "T00:00:00Z").toLocaleDateString(locale(), { timeZone: "UTC", month: "short", day: "numeric" });
-  if (!series.some(row => row.grants || row.revocations)) return <p>{t("No verified access changes in this period.")}</p>;
+  if (!series.some(row => row.grants || row.revocations)) return <p>{t("No observed access changes in this period.")}</p>;
   return <>
     <svg className="chart-line" viewBox="0 0 580 190" role="img" aria-labelledby={title}
       onPointerMove={event => {
@@ -33,7 +34,7 @@ export function AccessLine({ series }: { series: NonNullable<AccessActivity["ser
         const position = (event.clientX - bounds.left) * 580 / bounds.width;
         setPoint(Math.max(0, Math.min(series.length - 1, Math.round((position - 40) / 520 * (series.length - 1)))));
       }} onPointerLeave={() => setPoint(undefined)}>
-      <title id={title}>{t("Confirmed grants and revocations over time")}</title>
+      <title id={title}>{t("Observed membership additions and removals over time")}</title>
       {[0, maximum].map(value => <g key={value}>
         <path d={`M40 ${y(value)} H560`} stroke="#474b54" />
         <text x="32" y={y(value) + 4} textAnchor="end" fill="#bcc1cb" fontSize="11">{value}</text>

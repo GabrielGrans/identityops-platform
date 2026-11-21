@@ -106,14 +106,14 @@ def audit_events(
     db: DB, actor: Auditor, before_id: Cursor = None, limit: Limit = 50,
     action: Annotated[str | None, Query(max_length=80)] = None,
     actor_id: Annotated[int | None, Query(gt=0)] = None,
-    category: Literal["entra_sync", "entra_provisioning", "governance", "authorization"] | None = None,
+    category: Literal["entra_sync", "entra_membership", "entra_provisioning", "governance", "authorization"] | None = None,
     query: Annotated[str | None, Query(max_length=150)] = None,
     start_on: date | None = None, end_on: date | None = None,
     outcome: Literal["succeeded", "failed", "approved", "rejected"] | None = None,
 ):
     statement = select(AuditEvent)
     prefixes = {
-        "entra_sync": ("entra.sync.",), "entra_provisioning": ("entra.provisioning.",),
+        "entra_sync": ("entra.sync.",), "entra_membership": ("entra.membership.",), "entra_provisioning": ("entra.provisioning.",),
         "governance": ("governance.", "certification.", "review.", "entra.governance."),
         "authorization": ("request.", "access.", "auth.", "group."),
     }

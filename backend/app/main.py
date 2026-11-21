@@ -1,6 +1,7 @@
-﻿from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
+from fastapi.routing import APIRoute
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -51,9 +52,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="IdentityOps API",
-    description=(
-        "Enterprise Identity and Access Management Platform"
-    ),
+    description="Read-only IAM and SecOps monitoring for Microsoft Entra ID.",
     version="1.4.1",
     lifespan=lifespan,
 )
@@ -72,20 +71,21 @@ app.add_middleware(
 )
 
 
-app.include_router(auth_router)
-app.include_router(departments_router)
-app.include_router(employees_router)
-app.include_router(groups_router)
-app.include_router(permissions_router)
-app.include_router(memberships_router)
-app.include_router(governance_router)
-app.include_router(entra_router)
-app.include_router(entra_automation_router)
-app.include_router(unified_entra_directory_router)
-app.include_router(enterprise_governance_router)
-app.include_router(iam_operations_router)
-app.include_router(certification_router)
-app.include_router(dashboard_router)
+# Only local sign-in and read-only directory collection accept POST in this app.
+monitoring_posts = {"/auth/login", "/entra/sync"}
+monitoring_routes = APIRouter()
+for source in (
+    auth_router, departments_router, employees_router, groups_router, permissions_router,
+    memberships_router, governance_router, entra_router, entra_automation_router,
+    unified_entra_directory_router, enterprise_governance_router, iam_operations_router,
+    certification_router, dashboard_router,
+):
+    monitoring_routes.routes.extend(
+        route for route in source.routes
+        if isinstance(route, APIRoute)
+        and (route.methods == {"GET"} or (route.methods == {"POST"} and route.path in monitoring_posts))
+    )
+app.include_router(monitoring_routes)
 
 
 @app.get("/", tags=["General"])
