@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "IdentityOps",
-  "version": "2.0.0-beta.1",
+  "version": "2.0.0-beta.2",
   "identifier": "com.gransenterprise.identityops",
   "build": {
     "beforeDevCommand": "npm run dev -- --host 127.0.0.1 --port 5173 --strictPort",

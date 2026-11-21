@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog.
 
-## [2.0.0-beta.1] — IAM and SecOps Monitoring Preview
+## [2.0.0-beta.2] — IAM and SecOps Monitoring Preview
 
 ### Português
 
