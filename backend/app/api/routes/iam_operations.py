@@ -177,6 +177,70 @@ def access_activity(db: DB, config: Config, actor: Actor, days: Literal["7", "30
             "groups": [{"id": key, "name": name, "count": count} for key, name, count in groups]}
 
 
+@router.get("/v1/dashboard/membership-observations")
+def membership_observations(db: DB, config: Config, actor: Actor, days: Literal["7", "30", "90"] = "30"):
+    permissions = set(db.scalars(effective_permissions(actor.id)))
+    if not {"audit:read", "entra:read"} <= permissions:
+        raise HTTPException(403, "Dashboard permission required")
+    tenant = config.entra_tenant
+    if not tenant or not inspect(db.connection()).has_table(EntraSyncRun.__tablename__):
+        return {"available": False}
+    latest = latest_snapshot(db, tenant)
+    if latest is None:
+        return {"available": False}
+
+    today = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    start = today - timedelta(days=int(days) - 1)
+    month = today.replace(day=1)
+    added, removed = "entra.membership.added", "entra.membership.removed"
+    scope = (
+        AuditEvent.action.in_((added, removed)),
+        AuditEvent.details["tenant_id"].as_string() == tenant,
+    )
+    timestamp = AuditEvent.created_at
+    if db.get_bind().dialect.name == "postgresql":
+        timestamp = func.timezone("UTC", timestamp)
+    day = func.date(timestamp)
+    grant = AuditEvent.action == added
+    revoke = AuditEvent.action == removed
+    grants, revocations = db.execute(
+        select(func.count().filter(grant), func.count().filter(revoke))
+        .where(*scope, AuditEvent.created_at >= month)
+    ).one()
+    counts = {str(date): (grants, revocations) for date, grants, revocations in db.execute(
+        select(day, func.count().filter(grant), func.count().filter(revoke))
+        .where(*scope, AuditEvent.created_at >= start).group_by(day)
+    )}
+    series = []
+    for offset in range(int(days)):
+        date = (start + timedelta(days=offset)).date().isoformat()
+        daily_grants, daily_revocations = counts.get(date, (0, 0))
+        series.append({"date": date, "grants": daily_grants, "revocations": daily_revocations})
+
+    group_id = AuditEvent.details["group_object_id"].as_string()
+    group_name = AuditEvent.details["group_name"].as_string()
+    group_count = func.count().label("count")
+    groups = db.execute(
+        select(group_id, func.max(group_name), group_count)
+        .where(*scope, AuditEvent.created_at >= start).group_by(group_id)
+        .order_by(group_count.desc(), group_id).limit(10)
+    ).all()
+    recent = db.scalars(
+        select(AuditEvent).where(*scope, AuditEvent.created_at >= start)
+        .order_by(AuditEvent.id.desc()).limit(25)
+    )
+    return {
+        "available": True, "month": {"grants": grants, "revocations": revocations}, "series": series,
+        "groups": [{"id": key, "name": name, "count": count} for key, name, count in groups],
+        "recent": [
+            {"id": row.id, "observed_at": row.created_at, "operation": "added" if row.action == added else "removed",
+             "user_name": row.details["user_name"], "user_object_id": row.details["user_object_id"],
+             "group_name": row.details["group_name"], "group_object_id": row.details["group_object_id"]}
+            for row in recent
+        ],
+    }
+
+
 @router.get("/v1/dashboard/risk-distribution")
 def risk_distribution(db: DB, config: Config, actor: Actor):
     permissions = set(db.scalars(effective_permissions(actor.id)))

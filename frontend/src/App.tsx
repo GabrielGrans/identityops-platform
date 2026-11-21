@@ -3,9 +3,7 @@ import {
   Activity,
   Bell,
   Building2,
-  CheckCircle2,
   LayoutDashboard,
-  LockKeyhole,
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
@@ -13,7 +11,6 @@ import {
   LogOut,
   Settings,
   ShieldCheck,
-  UserPlus,
   Users,
   UsersRound,
 } from "lucide-react";
@@ -37,12 +34,7 @@ const navigation = [
   { label: "Departments", icon: Building2, section: "DIRECTORY" },
   { label: "Access Groups", icon: UsersRound, section: "DIRECTORY" },
   { label: "Permissions", icon: ShieldCheck, section: "DIRECTORY" },
-  { label: "Access Requests", icon: LockKeyhole, section: "DIRECTORY" },
   { label: "Microsoft Entra ID", icon: Building2, section: "DIRECTORY" },
-  { label: "Identity Lifecycle", icon: UserPlus, section: "GOVERNANCE" },
-  { label: "Access Reviews", icon: CheckCircle2, section: "GOVERNANCE" },
-  { label: "Access Certification", displayLabel: "Access Certification Campaigns", icon: ShieldCheck, section: "GOVERNANCE" },
-  { label: "Access Policies", icon: ShieldCheck, section: "GOVERNANCE" },
   { label: "Alerts & Findings", icon: Bell, section: "GOVERNANCE" },
   { label: "Audit Logs", icon: Activity, section: "GOVERNANCE" },
 ];
@@ -188,7 +180,7 @@ function App() {
               <div id={`nav-${section}`}>
                 {items.filter(item => !hidden || item.label === activePage).map(item => {
                   const Icon = item.icon;
-                  const label = t(item.displayLabel ?? item.label);
+                  const label = t(item.label);
                   return <button className={`nav-item ${activePage === item.label ? "active" : ""}`}
                     key={item.label} aria-label={label} aria-current={activePage === item.label ? "page" : undefined}
                     title={label} onClick={() => navigate(item.label)}>

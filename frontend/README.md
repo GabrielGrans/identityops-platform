@@ -1,135 +1,19 @@
-﻿# IdentityOps Frontend
+# IdentityOps Web and Desktop
 
-React and TypeScript frontend for the IdentityOps identity and access management platform.
+[Português](#português) · [Project README](../README.md)
 
-## Technology Stack
+The React and TypeScript interface presents IAM and SecOps monitoring, including Microsoft Entra ID directory snapshots, observed membership changes, synchronization health, findings, and audit logs. The Windows client shares the same interface using Tauri.
 
-- React
-- TypeScript
-- Vite
-- Lucide React
+## Local development
 
-## Implemented Screens
+Run the FastAPI backend as described in the [setup guide](../README.md), then run `npm ci` and `npm run dev` in this directory. Open [localhost:5173](http://127.0.0.1:5173/). For browser deployments, `VITE_API_URL` defaults to `http://127.0.0.1:8000`. Set it before building when deploying behind a reverse proxy. The desktop client uses the local backend.
 
-### Login
-- User authentication through the FastAPI backend.
-- JWT access-token handling.
-- Session validation.
+Run `npm run lint` and `npm run build` to validate the frontend. The [release guide](../docs/RELEASE.md) covers deployment and upgrade checks.
 
-### Dashboard
-- Main application overview.
-- Identity management interface.
-- Dashboard indicators and activity presentation.
+## Português
 
-### Employees
-- Employee directory connected to the backend API.
-- Employee information display.
-- Search and filtering.
+A interface React e TypeScript apresenta o monitoramento de IAM e SecOps. Ela reúne snapshots do Microsoft Entra ID, mudanças de associação observadas, saúde da sincronização, achados e auditoria. O cliente Windows reutiliza a interface por meio do Tauri.
 
-## Roadmap
+Inicie a API conforme o [guia do projeto](../README.md), execute `npm ci` e `npm run dev` nesta pasta e abra [localhost:5173](http://127.0.0.1:5173/). Na versão web, configure `VITE_API_URL` antes da compilação para usar outra rota ou endereço de API. O cliente Windows usa a API local.
 
-The following navigation modules are planned but are not yet implemented as complete frontend screens:
-
-- Departments
-- Access Groups
-- Permissions
-
-## Requirements
-
-- Node.js 22 or newer.
-- npm.
-- IdentityOps FastAPI backend running locally.
-
-## Installation
-
-From the project root:
-
-```powershell
-cd frontend
-npm install
-```
-
-## Configuration
-
-The API client uses the following default address:
-
-```text
-http://127.0.0.1:8000
-```
-
-To override it, create a `.env.local` file in the frontend directory:
-
-```dotenv
-VITE_API_URL=http://127.0.0.1:8000
-```
-
-Vite loads environment variables prefixed with `VITE_`.
-
-Do not place secrets or private credentials in frontend environment variables. Values exposed to Vite are included in the client-side application.
-
-## Development
-
-Start the development server:
-
-```powershell
-npm run dev
-```
-
-Open:
-
-http://localhost:5173
-
-## Validation
-
-Run ESLint:
-
-```powershell
-npm run lint
-```
-
-Build the production frontend:
-
-```powershell
-npm run build
-```
-
-Preview the production build:
-
-```powershell
-npm run preview
-```
-
-## Backend Integration
-
-The API client is located at:
-
-```text
-src/services/api.ts
-```
-
-It provides the frontend communication layer for:
-
-- Authentication: `POST /auth/login`
-- Current employee: `GET /auth/me`
-- Employee directory: `GET /employees`
-
-Authenticated requests use the JWT Bearer token.
-
-## Project Structure
-
-```text
-src/
-├── assets/
-├── services/
-│   └── api.ts
-├── App.tsx
-├── EmployeesPage.tsx
-├── LoginPage.tsx
-├── App.css
-├── index.css
-└── main.tsx
-```
-
-## License
-
-This frontend is part of the IdentityOps Platform project and is distributed under the MIT License.
+Valide o frontend com `npm run lint` e `npm run build`. Consulte o [guia de release](../docs/RELEASE.md) para publicação e atualização.

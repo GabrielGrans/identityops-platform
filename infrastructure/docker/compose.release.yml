@@ -15,7 +15,7 @@ services:
       retries: 10
 
   api:
-    image: identityops-api:${IDENTITYOPS_VERSION:-1.4.1}
+    image: identityops-api:${IDENTITYOPS_VERSION:-2.0.0-beta.1}
     build:
       context: ../..
       dockerfile: infrastructure/docker/backend.Dockerfile
@@ -34,9 +34,6 @@ services:
       ENTRA_GRAPH_BASE_URL: ${ENTRA_GRAPH_BASE_URL:-https://graph.microsoft.com/v1.0}
       ENTRA_HTTP_TIMEOUT_SECONDS: ${ENTRA_HTTP_TIMEOUT_SECONDS:-10}
       ENTRA_SYNC_INTERVAL_MINUTES: ${ENTRA_SYNC_INTERVAL_MINUTES:-10}
-      ENTRA_WRITE_ENABLED: ${ENTRA_WRITE_ENABLED:-false}
-      ENTRA_WRITE_GROUP_IDS: ${ENTRA_WRITE_GROUP_IDS:-}
-      ENTRA_PROTECTED_GROUP_IDS: ${ENTRA_PROTECTED_GROUP_IDS:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,7 +52,7 @@ services:
       test: ["NONE"]
 
   web:
-    image: identityops-web:${IDENTITYOPS_VERSION:-1.4.1}
+    image: identityops-web:${IDENTITYOPS_VERSION:-2.0.0-beta.1}
     build:
       context: ../..
       dockerfile: infrastructure/docker/frontend.Dockerfile

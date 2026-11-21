@@ -193,6 +193,7 @@ export function AuditPage({ session }: { session: Session }) {
         <label>{t("Event category")}<select name="category">
           <option value="">{t("All categories")}</option>
           <option value="entra_sync">{t("Entra synchronization")}</option>
+            <option value="entra_membership">{t("Observed Entra access changes")}</option>
           <option value="entra_provisioning">{t("Entra provisioning")}</option>
           <option value="governance">{t("Governance")}</option>
           <option value="authorization">{t("Authorization")}</option>
@@ -212,7 +213,7 @@ export function AuditPage({ session }: { session: Session }) {
         <DataTable label={t("Events")} rows={rows} rowKey={row => row.id} columns={[
           { label: t("Action"), render: row => <button className="secondary-button" onClick={() => setDetail(row)}>{row.action}</button> },
           { label: t("Date"), render: row => displayTime(row.created_at) },
-          { label: t("Actor ID"), render: row => row.actor_id ?? t("System") },
+          { label: t("Actor ID"), render: row => row.actor_id ?? t(row.action.startsWith("entra.membership.") ? "Actor not recorded" : "System") },
           { label: t("Target"), render: row => `${row.target_type} ${row.target_id === null ? "" : "#" + row.target_id}` },
         ]} />
         <Pagination rows={rows} cursor={cursor} />
@@ -221,7 +222,7 @@ export function AuditPage({ session }: { session: Session }) {
     {detail && <Drawer title={t("Event details")} close={() => setDetail(undefined)}>
       <dl><dt>{t("Action")}</dt><dd>{detail.action}</dd>
         <dt>{t("Date")}</dt><dd>{displayTime(detail.created_at)}</dd>
-        <dt>{t("Actor ID")}</dt><dd>{detail.actor_id ?? t("System")}</dd>
+        <dt>{t("Actor ID")}</dt><dd>{detail.actor_id ?? t(detail.action.startsWith("entra.membership.") ? "Actor not recorded" : "System")}</dd>
         <dt>{t("Target")}</dt><dd>{detail.target_type} {detail.target_id}</dd></dl>
       {Object.keys(detail.details).length > 0 && <pre>{JSON.stringify(detail.details, null, 2)}</pre>}
     </Drawer>}

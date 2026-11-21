@@ -56,8 +56,7 @@ export function EntraGovernancePage({ session, notifications }: { session: Sessi
             </div>
             <div className="iam-actions">
               <button className="secondary-button" onClick={() => setSelected(item.key)}>{t("Investigate finding")}</button>
-              {item.state === "unread" && <button className="secondary-button" disabled={operations.busy}
-                onClick={() => void operations.mutate(`${endpoint}/notifications/${item.key}`, "PUT")}>{t("Acknowledge")}</button>}
+
             </div>
           </li>)}</ul> : <p>{t("No records.")}</p>}
           <div className="iam-actions">

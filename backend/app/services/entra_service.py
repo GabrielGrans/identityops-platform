@@ -82,7 +82,44 @@ def upsert_directory(db: Session, model, records: Iterable[dict], tenant_id: str
     return ids
 
 
+def observed_membership_changes(db: Session, run: EntraSyncRun, snapshot: DirectorySnapshot):
+    prior = db.scalar(select(EntraSyncRun).where(
+        EntraSyncRun.tenant_id == run.tenant_id, EntraSyncRun.status == "completed",
+    ).order_by(EntraSyncRun.id.desc()).limit(1))
+    if prior is None or prior.skipped_users_count or snapshot.skipped_users:
+        return
+
+    previous = {
+        (group_id, user_id): (group_name, user_name)
+        for group_id, user_id, group_name, user_name in db.execute(
+            select(EntraGroup.object_id, EntraUser.object_id, EntraGroup.display_name, EntraUser.display_name)
+            .select_from(EntraMembership)
+            .join(EntraGroup, EntraGroup.id == EntraMembership.group_id)
+            .join(EntraUser, EntraUser.id == EntraMembership.user_id)
+            .where(EntraGroup.tenant_id == run.tenant_id, EntraUser.tenant_id == run.tenant_id)
+        )
+    }
+    current = set(snapshot.memberships)
+    for action, edges in (
+        ("added", current - previous.keys()),
+        ("removed", previous.keys() - current),
+    ):
+        for group_id, user_id in sorted(edges):
+            if action == "added":
+                group_name = snapshot.groups[group_id].get("display_name")
+                user_name = snapshot.users[user_id].get("display_name")
+            else:
+                group_name, user_name = previous[(group_id, user_id)]
+            record_event(
+                db, None, f"entra.membership.{action}", "entra_sync_runs", run.id,
+                tenant_id=run.tenant_id, previous_run_id=prior.id,
+                user_object_id=user_id, user_name=user_name,
+                group_object_id=group_id, group_name=group_name,
+            )
+
+
 def persist_snapshot(db: Session, run: EntraSyncRun, snapshot: DirectorySnapshot, before_commit=None):
+    observed_membership_changes(db, run, snapshot)
     users = upsert_directory(db, EntraUser, snapshot.users.values(), run.tenant_id, run.id)
     groups = upsert_directory(db, EntraGroup, snapshot.groups.values(), run.tenant_id, run.id)
     db.execute(delete(EntraMembership).where(
