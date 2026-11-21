@@ -240,7 +240,7 @@ def test_root_endpoint(monitoring_client):
     assert response.json() == {
         "application": "IdentityOps",
         "message": "IdentityOps API is running",
-        "version": "2.0.0-beta.1",
+        "version": "2.0.0-beta.2",
     }
 
 

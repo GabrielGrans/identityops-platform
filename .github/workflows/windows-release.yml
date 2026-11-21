@@ -1,0 +1,70 @@
+name: Publish Windows installer
+
+on:
+  push:
+    tags: ['v2.*']
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: rustup toolchain install stable --profile minimal
+      - name: Confirm tag matches desktop configuration
+        shell: pwsh
+        run: |
+          $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          if ($env:GITHUB_REF_NAME -ne ('v' + $config.version)) { throw 'Tag and desktop version must match.' }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run desktop:build -- --ci
+      - name: Prepare installer and SHA-256 checksum
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem src-tauri/target/release/bundle/nsis -Filter '*-setup.exe')
+          if ($files.Count -ne 1) { throw 'Expected one Windows x64 installer.' }
+          New-Item -Path release -ItemType Directory | Out-Null
+          $name = 'IdentityOps-' + $env:GITHUB_REF_NAME.Substring(1) + '-Windows-x64.exe'
+          Copy-Item -LiteralPath $files[0].FullName -Destination "release/$name"
+          $hash = (Get-FileHash -LiteralPath "release/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name" | Set-Content -Encoding ascii release/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: frontend/release/
+          if-no-files-found: error
+
+  publish:
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
+          path: release
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          (cd release && sha256sum -c SHA256SUMS)
+          args=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then args+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" release/*.exe release/SHA256SUMS \
+            --verify-tag --title "IdentityOps $RELEASE_TAG" "${args[@]}" \
+            --notes "Windows x64 installer and SHA-256 checksum. The client requires a separate local API and PostgreSQL. Follow the [installation guide](https://github.com/$GH_REPO/blob/$RELEASE_TAG/docs/WINDOWS.md)."

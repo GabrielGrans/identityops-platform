@@ -1,6 +1,6 @@
 # IdentityOps · IAM & SecOps Monitoring
 
-**PT-BR** · [English](#english) · [Notas de versão](CHANGELOG.md) · [Guia da beta](docs/RELEASE.md)
+**PT-BR** · [English](#english) · [Notas de versão](CHANGELOG.md) · [Guia da beta](docs/RELEASE.md) · [Instalação Windows](docs/WINDOWS.md)
 
 IdentityOps é uma ferramenta de monitoramento para equipes de IAM e SecOps. Ela consulta identidades, grupos e associações do Microsoft Entra ID, exibe mudanças de acesso observadas e reúne achados de segurança, saúde da sincronização e logs de auditoria.
 
@@ -11,7 +11,7 @@ IdentityOps é uma ferramenta de monitoramento para equipes de IAM e SecOps. Ela
 
 A primeira coleta bem-sucedida estabelece a referência para um tenant novo. Coletas posteriores comparam associações diretas de usuários em grupos de segurança. O horário registrado é o da coleta que observou a mudança. A comparação de snapshots não identifica o autor da mudança nem captura alterações feitas e revertidas entre duas coletas.
 
-![Dashboard de IAM e SecOps com dados fictícios](docs/assets/iam-secops-dashboard.jpg)
+![Grans Enterprise — IdentityOps](docs/assets/identityops-capa.png)
 
 ### Executar localmente
 

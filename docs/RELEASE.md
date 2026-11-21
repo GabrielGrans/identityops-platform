@@ -2,7 +2,7 @@
 
 [English](#english) · [README](../README.md) · [Changelog](../CHANGELOG.md)
 
-A beta **v2.0.0-beta.1** apresenta o IdentityOps como ferramenta de monitoramento IAM e SecOps. O dashboard usa diferenças entre coletas para identificar inclusões e remoções de membros. Os eventos mostram o horário da observação e o autor permanece desconhecido.
+A beta **v2.0.0-beta.2** apresenta o IdentityOps como ferramenta de monitoramento IAM e SecOps. O dashboard usa diferenças entre coletas para identificar inclusões e remoções de membros. Os eventos mostram o horário da observação e o autor permanece desconhecido.
 
 ## Instalação e atualização
 
@@ -15,6 +15,6 @@ Os [releases anteriores](https://github.com/GabrielGrans/identityops-platform/re
 
 ## English
 
-**v2.0.0-beta.1** previews IAM and SecOps monitoring. Membership changes are inferred from consecutive snapshots. An observation records when a change was detected. Snapshots do not identify the actor.
+**v2.0.0-beta.2** previews IAM and SecOps monitoring. Membership changes are inferred from consecutive snapshots. An observation records when a change was detected. Snapshots do not identify the actor.
 
 For a fresh install, use the [README](../README.md) and [Entra read-only setup](ENTRA_ID.md). For an upgrade, back up PostgreSQL, stop the legacy provisioning worker, and run the migration without `--bootstrap`. Historical records remain available. Validate consecutive snapshots, audit visibility, and the API surface on a test tenant. Publish beta installers only after the GitHub Actions packaging checks pass.

@@ -73,7 +73,7 @@ jobs:
       - run: npm run desktop:build -- --ci
       - uses: actions/upload-artifact@v4
         with:
-          name: identityops-2.0.0-beta.1-windows-nsis
+          name: identityops-2.0.0-beta.2-windows-nsis
           path: frontend/src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
 
@@ -112,13 +112,13 @@ jobs:
       - name: Package release
         run: |
           mkdir release
-          docker save identityops-api:2.0.0-beta.1 identityops-web:2.0.0-beta.1 postgres:17 | gzip > release/identityops-images.tar.gz
+          docker save identityops-api:2.0.0-beta.2 identityops-web:2.0.0-beta.2 postgres:17 | gzip > release/identityops-images.tar.gz
           cp infrastructure/docker/compose.release.yml docs/RELEASE.md docs/IAM.md docs/ENTRA_ID.md docs/ENTRA_AUTOMATION.md docs/UNIFIED_ENTRA_DIRECTORY.md docs/IAM_OPERATIONS.md docs/CERTIFICATION.md docs/DASHBOARD.md .env.example LICENSE release/
           cd release
           sha256sum identityops-images.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: identityops-2.0.0-beta.1
+          name: identityops-2.0.0-beta.2
           path: release/
           include-hidden-files: true
       - name: Stop smoke stack
@@ -134,11 +134,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: identityops-2.0.0-beta.1
+          name: identityops-2.0.0-beta.2
           path: release
       - uses: actions/download-artifact@v4
         with:
-          name: identityops-2.0.0-beta.1-windows-nsis
+          name: identityops-2.0.0-beta.2-windows-nsis
           path: desktop
       - name: Attach verified packages to the matching draft
         env:
@@ -147,7 +147,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
-          [[ "$RELEASE_TAG" == v2.0.0-beta.1 ]]
+          [[ "$RELEASE_TAG" == v2.0.0-beta.2 ]]
           tag_sha=$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --jq '.object | select(.type == "tag") | .sha')
           gh api "repos/$GH_REPO/git/tags/$tag_sha" |
             jq -e --arg sha "$GITHUB_SHA" '.object.type == "commit" and .object.sha == $sha'
